@@ -21,7 +21,7 @@ FAST_POLL_INTERVAL = timedelta(seconds=10)
 # occasionally to see whether the car has be turned back on. On some cars
 # this causes a relay to click every time, so this interval needs to be
 # as long as possible to prevent excessive wear on the relay.
-SLOW_POLL_INTERVAL = timedelta(minutes=1)
+SLOW_POLL_INTERVAL = timedelta(minutes=5)
 
 # when the device is out of range, use ultra slow polling since a bluetooth
 # advertisement message will kick it back into life when back in range.
