@@ -46,33 +46,6 @@ def <name>(<list_of_messages>):
 """
 
 
-# returns the raw strings from the ELM
-def raw_string(messages):
-    """Return the raw strings from the ELM."""
-    return "\n".join([m.raw() for m in messages])
-
-
-# General sensor decoders
-# Return pint Quantities
-
-
-def elm_voltage(messages):
-    """Decode the voltage reported by the ELM device."""
-    # """Calculate ELM dongle voltage."""
-    # # doesn't register as a normal OBD response,
-    # # so access the raw frame data
-    # v = messages[0].frames[0].raw
-    # # Some ELMs provide float V (for example messages[0].frames[0].raw => u'12.3V'
-    # v = v.lower()
-    # v = v.replace("v", "")
-
-    # try:
-    #     return float(v) * Unit.volt
-    # except ValueError:
-    #     logger.warning("Failed to parse ELM voltage")
-    return None
-
-
 # Special decoders
 # Return objects, lists, etc
 

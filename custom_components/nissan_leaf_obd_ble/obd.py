@@ -37,7 +37,6 @@ from bleak.backends.device import BLEDevice
 # from .commands import commands
 from .elm327 import ELM327, OBDStatus
 from .OBDResponse import OBDResponse
-from .protocols import ECU_HEADER
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +52,6 @@ class OBD:
     ) -> None:
         """Initialise."""
         self.interface = None
-        # self.supported_commands = set(commands.base_commands())
         self.fast = fast  # global switch for disabling optimizations
         self.timeout = timeout
         self.__device = device
@@ -131,8 +129,6 @@ class OBD:
     async def close(self):
         """Close the connection, and clears supported_commands."""
 
-        # self.supported_commands = set()
-
         if self.interface is not None:
             logger.info("Closing connection")
             await self.interface.close()
@@ -175,26 +171,6 @@ class OBD:
         obd.status = OBDStatus.ELM_CONNECTED
         """
         return self.status() == OBDStatus.CAR_CONNECTED
-
-    # def supports(self, cmd):
-    #     """Return a boolean for whether the given command is supported by the car."""
-    #     return cmd in self.supported_commands
-
-    # def test_cmd(self, cmd, warn=True):
-    #     """Return. a boolean for whether a command will be sent without using force=True."""
-    #     # test if the command is supported
-    #     if not self.supports(cmd):
-    #         if warn:
-    #             logger.warning("'%s' is not supported", str(cmd))
-    #         return False
-
-    #     # mode 06 is only implemented for the CAN protocols
-    #     if cmd.mode == 6 and self.interface.protocol_id() not in ["6", "7", "8", "9"]:
-    #         if warn:
-    #             logger.warning("Mode 06 commands are only supported over CAN protocols")
-    #         return False
-
-    #     return True
 
     async def query(self, cmd, force=False):
         """Primary API function. Send commands to the car, and protect against sending unsupported commands."""

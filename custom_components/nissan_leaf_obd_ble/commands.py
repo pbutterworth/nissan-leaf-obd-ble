@@ -42,7 +42,6 @@ from .decoders import (
     charge_mode,
     e_pedal_mode,
     eco_mode,
-    elm_voltage,
     estimated_ac_power,
     estimated_ptc_power,
     gear_position,
@@ -55,7 +54,6 @@ from .decoders import (
     power_switch,
     quick_charges,
     range_remaining,
-    raw_string,
     rear_heater,
     rpm,
     speed,
@@ -76,25 +74,6 @@ logger = logging.getLogger(__name__)
 # see OBDCommand.py for descriptions & purposes for each of these fields
 
 # fmt: off
-__misc__ = [
-    OBDCommand(
-        "ELM_VERSION",
-        "ELM327 version string",
-        b"ATI",
-        0,
-        raw_string,
-        False,
-    ),
-    OBDCommand(
-        "ELM_VOLTAGE",
-        "Voltage detected by OBD-II adapter",
-        b"ATRV",
-        0,
-        elm_voltage,
-        False,
-    ),
-]
-
 leaf_commands = {
     #          name                     description                     cmd             bytes decoder               header
     "unknown":               OBDCommand("unknown",               "Mystery command",              b"0210C0",      0,  unknown,                header=b"797",),

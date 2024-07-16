@@ -39,17 +39,17 @@ def isHex(_hex):
     return all(c in string.hexdigits for c in _hex)
 
 
-def contiguous(l, start, end):
+def contiguous(list, start, end):
     """Check that a list of integers are consequtive."""
-    if not l:
+    if not list:
         return False
-    if l[0] != start:
+    if list[0] != start:
         return False
-    if l[-1] != end:
+    if list[-1] != end:
         return False
 
     # for consequtiveness, look at the integers in pairs
-    pairs = zip(l, l[1:], strict=False)
+    pairs = zip(list, list[1:], strict=False)
     if not all(p[0] + 1 == p[1] for p in pairs):
         return False
 

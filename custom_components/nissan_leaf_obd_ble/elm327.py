@@ -38,21 +38,7 @@ from bleak.backends.device import BLEDevice
 
 from .bleserial import bleserial
 from .protocols.protocol import Message
-from .protocols.protocol_can import (
-    SAE_J1939,
-    ISO_15765_4_11bit_250k,
-    ISO_15765_4_11bit_500k,
-    ISO_15765_4_29bit_250k,
-    ISO_15765_4_29bit_500k,
-)
-from .protocols.protocol_legacy import (
-    ISO_9141_2,
-    SAE_J1850_PWM,
-    SAE_J1850_VPW,
-    ISO_14230_4_5baud,
-    ISO_14230_4_fast,
-)
-from .protocols.protocol_unknown import UnknownProtocol
+from .protocols.protocol_can import ISO_15765_4_11bit_500k
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.WARNING)
@@ -75,39 +61,6 @@ class ELM327:
     # an 'OK' which indicates we are entering low power state
     ELM_LP_ACTIVE = b"OK"
 
-    _SUPPORTED_PROTOCOLS = {
-        # "0" : None,
-        # Automatic Mode. This isn't an actual protocol. If the
-        # ELM reports this, then we don't have enough
-        # information. see auto_protocol()
-        "1": SAE_J1850_PWM,
-        "2": SAE_J1850_VPW,
-        "3": ISO_9141_2,
-        "4": ISO_14230_4_5baud,
-        "5": ISO_14230_4_fast,
-        "6": ISO_15765_4_11bit_500k,
-        "7": ISO_15765_4_29bit_500k,
-        "8": ISO_15765_4_11bit_250k,
-        "9": ISO_15765_4_29bit_250k,
-        "A": SAE_J1939,
-        # "B" : None, # user defined 1
-        # "C" : None, # user defined 2
-    }
-
-    # used as a fallback, when ATSP0 doesn't cut it
-    _TRY_PROTOCOL_ORDER = [
-        "6",  # ISO_15765_4_11bit_500k
-        "8",  # ISO_15765_4_11bit_250k
-        "1",  # SAE_J1850_PWM
-        "7",  # ISO_15765_4_29bit_500k
-        "9",  # ISO_15765_4_29bit_250k
-        "2",  # SAE_J1850_VPW
-        "3",  # ISO_9141_2
-        "4",  # ISO_14230_4_5baud
-        "5",  # ISO_14230_4_fast
-        "A",  # SAE_J1939
-    ]
-
     # GATT UUIDs specifically for LeLink OBD BLE dongle
     SERVICE_UUID = "0000ffe0-0000-1000-8000-00805f9b34fb"
     CHARACTERISTIC_UUID = "0000ffe1-0000-1000-8000-00805f9b34fb"
@@ -119,10 +72,10 @@ class ELM327:
     ) -> None:
         """Initialise."""
         self.__status = OBDStatus.NOT_CONNECTED
-        self.__protocol = UnknownProtocol([])
         self.__low_power = False
         self.timeout = timeout
         self.__port = bleserial(device, self.SERVICE_UUID, self.CHARACTERISTIC_UUID)
+        self.__protocol = ISO_15765_4_11bit_500k()
 
     @classmethod
     async def create(
@@ -219,93 +172,8 @@ class ELM327:
             self.__status = OBDStatus.OBD_CONNECTED
 
         # try to communicate with the car, and load the correct protocol parser
-        if await self.set_protocol(protocol):
-            self.__status = OBDStatus.CAR_CONNECTED
-            logger.info(
-                "Connected Successfully: PROTOCOL=%s", (self.__protocol.ELM_ID,)
-            )
-        elif self.__status == OBDStatus.OBD_CONNECTED:
-            logger.error("Adapter connected, but the ignition is off")
-        else:
-            logger.error(
-                "Connected to the adapter, " "but failed to connect to the vehicle"
-            )
+        self.__status = OBDStatus.CAR_CONNECTED
         return self
-
-    async def set_protocol(self, protocol_):
-        """Set protocol."""
-        if protocol_ is not None:
-            # an explicit protocol was specified
-            if protocol_ not in self._SUPPORTED_PROTOCOLS:
-                logger.error(
-                    "%s is not a valid protocol. Please use 1 through A", protocol_
-                )
-                return False
-            return await self._manual_protocol(protocol_)
-        # auto detect the protocol
-        return await self.auto_protocol()
-
-    async def _manual_protocol(self, protocol_):
-        await self.__send(b"ATSP" + protocol_.encode())
-        r0100 = await self.__send(b"0100")
-
-        if not self.__has_message(r0100, "UNABLE TO CONNECT"):
-            # success, found the protocol
-            self.__protocol = self._SUPPORTED_PROTOCOLS[protocol_](r0100)
-            return True
-
-        return False
-
-    async def auto_protocol(self):
-        """Attempt communication with the car.
-
-        If no protocol is specified, then protocols at tried with `ATTP`
-
-        Upon success, the appropriate protocol parser is loaded,
-        and this function returns True
-        """
-
-        # -------------- try the ELM's auto protocol mode --------------
-        r = await self.__send(b"ATSP0", delay=1)
-
-        # -------------- 0100 (first command, SEARCH protocols) --------------
-        r0100 = await self.__send(b"0100", delay=1)
-        if self.__has_message(r0100, "UNABLE TO CONNECT"):
-            logger.error("Failed to query protocol 0100: unable to connect")
-            return False
-
-        # ------------------- ATDPN (list protocol number) -------------------
-        r = await self.__send(b"ATDPN")
-        if len(r) != 1:
-            logger.error("Failed to retrieve current protocol")
-            return False
-
-        p = r[0]  # grab the first (and only) line returned
-        # suppress any "automatic" prefix
-        p = p[1:] if (len(p) > 1 and p.startswith("A")) else p
-
-        # check if the protocol is something we know
-        if p in self._SUPPORTED_PROTOCOLS:
-            # jackpot, instantiate the corresponding protocol handler
-            self.__protocol = self._SUPPORTED_PROTOCOLS[p](r0100)
-            return True
-
-        # an unknown protocol
-        # this is likely because not all adapter/car combinations work
-        # in "auto" mode. Some respond to ATDPN responded with "0"
-        logger.debug("ELM responded with unknown protocol. Trying them one-by-one")
-
-        for p in self._TRY_PROTOCOL_ORDER:
-            r = await self.__send(b"ATTP" + p.encode())
-            r0100 = await self.__send(b"0100")
-            if not self.__has_message(r0100, "UNABLE TO CONNECT"):
-                # success, found the protocol
-                self.__protocol = self._SUPPORTED_PROTOCOLS[p](r0100)
-                return True
-
-        # if we've come this far, then we have failed...
-        logger.error("Failed to determine protocol")
-        return False
 
     def __isok(self, lines, expectEcho=False):
         if not lines:
@@ -317,10 +185,7 @@ class ELM327:
         return len(lines) == 1 and lines[0] == "OK"
 
     def __has_message(self, lines, text):
-        for line in lines:
-            if text in line:
-                return True
-        return False
+        return any(text in line for line in lines)
 
     async def __error(self, msg):
         """Handle fatal failures, print logger.info info and closes serial."""
@@ -330,9 +195,6 @@ class ELM327:
     def status(self):
         """Return the status."""
         return self.__status
-
-    # def ecus(self):
-    #     return self.__protocol.ecu_map.values()
 
     def protocol_name(self):
         """Return the protocol name."""
@@ -400,7 +262,6 @@ class ELM327:
         """Reset the device, and sets all attributes to unconnected states."""
 
         self.__status = OBDStatus.NOT_CONNECTED
-        self.__protocol = None
 
         if self.__port is not None:
             logger.info("closing port")

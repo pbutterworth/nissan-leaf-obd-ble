@@ -32,7 +32,6 @@
 import logging
 
 from .OBDResponse import OBDResponse
-from .protocols import ECU, ECU_HEADER
 from .utils import isHex
 
 logger = logging.getLogger(__name__)
@@ -48,8 +47,8 @@ class OBDCommand:
         command,
         _bytes,
         decoder,
-        fast=False,
         header,
+        fast=False,
     ) -> None:
         """Initialise."""
         self.name = name  # human readable name (also used as key in commands dict)
@@ -57,8 +56,8 @@ class OBDCommand:
         self.command = command  # command string
         self.bytes = _bytes  # number of bytes expected in return
         self.decode = decoder  # decoding function
+        self.header = header  # header used for the queries
         self.fast = fast  # can an extra digit be added to the end of the command? (to make the ELM return early)
-        self.header = header  # ECU header used for the queries
 
     def clone(self):
         """Copy constructor."""
@@ -68,9 +67,8 @@ class OBDCommand:
             self.command,
             self.bytes,
             self.decode,
-            self.ecu,
-            self.fast,
             self.header,
+            self.fast,
         )
 
     @property
@@ -89,9 +87,6 @@ class OBDCommand:
 
     def __call__(self, messages):
         """Decode the message with the relevant decoder."""
-        # filter for applicable messages (from the right ECU(s))
-        messages = [m for m in messages if (self.ecu & m.ecu) > 0]
-
         # guarantee data size for the decoder
         for m in messages:
             self.__constrain_message_data(m)
@@ -131,36 +126,15 @@ class OBDCommand:
 
     def __str__(self):
         """Return string representation of command."""
-        if self.header != ECU_HEADER.ENGINE:
-            return str(f"{self.header + self.command}: {self.desc}")
-        return str("%s: %s", (self.command, self.desc))
+        return str(f"{self.header + self.command}: {self.desc}")
 
     def __repr__(self):
         """Return representation of the command."""
-        e = self.ecu
-        if self.ecu == ECU.ALL:
-            e = "ECU.ALL"
-        if self.ecu == ECU.ENGINE:
-            e = "ECU.ENGINE"
-        if self.ecu == ECU.TRANSMISSION:
-            e = "ECU.TRANSMISSION"
-        if self.header == ECU_HEADER.ENGINE:
-            return ("OBDCommand(%s, %s, %s, %s, raw_string, ecu=%s, fast=%s)"), (
-                repr(self.name),
-                repr(self.desc),
-                repr(self.command),
-                self.bytes,
-                e,
-                self.fast,
-            )
-        return (
-            "OBDCommand" + "(%s, %s, %s, %s, raw_string, ecu=%s, fast=%s, header=%s)"
-        ), (
+        return ("OBDCommand" + "(%s, %s, %s, %s, raw_string, fast=%s, header=%s)"), (
             repr(self.name),
             repr(self.desc),
             repr(self.command),
             self.bytes,
-            e,
             self.fast,
             repr(self.header),
         )

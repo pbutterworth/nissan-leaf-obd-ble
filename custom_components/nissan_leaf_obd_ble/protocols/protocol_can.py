@@ -48,12 +48,12 @@ class CANProtocol(Protocol):
     FRAME_TYPE_FF = 0x10  # first frame of multi-frame message
     FRAME_TYPE_CF = 0x20  # consecutive frame(s) of multi-frame message
 
-    def __init__(self, lines_0100, id_bits) -> None:
+    def __init__(self, id_bits) -> None:
         """Initialise."""
         # this needs to be set FIRST, since the base
         # Protocol __init__ uses the parsing system.
         self.id_bits = id_bits
-        Protocol.__init__(self, lines_0100)
+        Protocol.__init__(self)
 
     def _parse_frame(self, frame):
         raw = frame.raw
@@ -211,7 +211,7 @@ class CANProtocol(Protocol):
                 return False
 
             # calculate proper sequence indices from the lower 4 bits given
-            for prev, curr in zip(cf, cf[1:]):
+            for prev, curr in zip(cf, cf[1:], strict=False):
                 # Frame sequence numbers only specify the low order bits, so compute the
                 # full sequence number from the frame number and the last sequence number seen:
                 # 1) take the high order bits from the last_sn and low order bits from the frame
@@ -291,50 +291,6 @@ class ISO_15765_4_11bit_500k(CANProtocol):
     ELM_NAME = "ISO 15765-4 (CAN 11/500)"
     ELM_ID = "6"
 
-    def __init__(self, lines_0100) -> None:
+    def __init__(self) -> None:
         """Initialise."""
-        CANProtocol.__init__(self, lines_0100, id_bits=11)
-
-
-class ISO_15765_4_29bit_500k(CANProtocol):
-    """15765-4 (CAN 29/500)."""
-
-    ELM_NAME = "ISO 15765-4 (CAN 29/500)"
-    ELM_ID = "7"
-
-    def __init__(self, lines_0100) -> None:
-        """Initialise."""
-        CANProtocol.__init__(self, lines_0100, id_bits=29)
-
-
-class ISO_15765_4_11bit_250k(CANProtocol):
-    """ISO 15765-4 (CAN 11/250)."""
-
-    ELM_NAME = "ISO 15765-4 (CAN 11/250)"
-    ELM_ID = "8"
-
-    def __init__(self, lines_0100) -> None:
-        """Initialise."""
-        CANProtocol.__init__(self, lines_0100, id_bits=11)
-
-
-class ISO_15765_4_29bit_250k(CANProtocol):
-    """ISO 15765-4 (CAN 29/250)."""
-
-    ELM_NAME = "ISO 15765-4 (CAN 29/250)"
-    ELM_ID = "9"
-
-    def __init__(self, lines_0100) -> None:
-        """Initialise."""
-        CANProtocol.__init__(self, lines_0100, id_bits=29)
-
-
-class SAE_J1939(CANProtocol):
-    """SAE J1939 (CAN 29/250)."""
-
-    ELM_NAME = "SAE J1939 (CAN 29/250)"
-    ELM_ID = "A"
-
-    def __init__(self, lines_0100) -> None:
-        """Initialise."""
-        CANProtocol.__init__(self, lines_0100, id_bits=29)
+        CANProtocol.__init__(self, id_bits=11)

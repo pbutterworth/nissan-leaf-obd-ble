@@ -111,11 +111,7 @@ class Protocol:
     ELM_NAME = ""  # the ELM's name for this protocol (ie, "SAE J1939 (CAN 29/250)")
     ELM_ID = ""  # the ELM's ID for this protocol (ie, "A")
 
-    # the TX_IDs of known ECUs
-    TX_ID_ENGINE = None
-    TX_ID_TRANSMISSION = None
-
-    def __init__(self, lines_0100) -> None:
+    def __init__(self) -> None:
         """Construct a protocol object.
 
         uses a list of raw strings from the
@@ -180,7 +176,6 @@ class Protocol:
 
         for line in non_obd_lines:
             # give each line its own message object
-            # messages are ECU.UNKNOWN by default
             messages.append(Message([Frame(line)]))
         return messages
 
