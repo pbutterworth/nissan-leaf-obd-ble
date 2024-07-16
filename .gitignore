@@ -1,9 +1,6 @@
-/.DS_Store
-/connecected_car_off.log
-/connected_car_on.log
-/requirements.test.txt
-/tests
-
-# GITHUB Proposed Python stuff:
-*.py[cod]
 __pycache__
+pythonenv*
+.python-version
+.coverage
+venv
+.venv
