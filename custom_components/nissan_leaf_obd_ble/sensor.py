@@ -104,7 +104,6 @@ SENSOR_TYPES: dict[str, SensorEntityDescription] = {
         icon="mdi:gauge",
         name="Motor RPM",
         native_unit_of_measurement="RPM",
-        device_class=SensorDeviceClass.SPEED,
         state_class=SensorStateClass.MEASUREMENT,
     ),
     "obc_out_power": SensorEntityDescription(
@@ -127,7 +126,7 @@ SENSOR_TYPES: dict[str, SensorEntityDescription] = {
         key="speed",
         icon="mdi:speedometer",
         name="Vehicle speed",
-        native_unit_of_measurement="RPM",
+        native_unit_of_measurement="km/h",
         device_class=SensorDeviceClass.SPEED,
         state_class=SensorStateClass.MEASUREMENT,
     ),
@@ -137,7 +136,7 @@ SENSOR_TYPES: dict[str, SensorEntityDescription] = {
         name="Odometer",
         native_unit_of_measurement="km",
         device_class=SensorDeviceClass.DISTANCE,
-        state_class=SensorStateClass.MEASUREMENT,
+        state_class=SensorStateClass.TOTAL_INCREASING,
     ),
     "tp_fr": SensorEntityDescription(
         key="tp_fr",
@@ -200,7 +199,6 @@ SENSOR_TYPES: dict[str, SensorEntityDescription] = {
         # icon="mdi:ev-station",
         name="HV battery capacity",
         native_unit_of_measurement="Ah",
-        device_class=SensorDeviceClass.ENERGY_STORAGE,
         state_class=SensorStateClass.MEASUREMENT,
     ),
     "hv_battery_current_1": SensorEntityDescription(
@@ -264,7 +262,7 @@ class NissanLeafObdBleSensor(NissanLeafObdBleEntity, SensorEntity):
         ].native_unit_of_measurement
 
     @property
-    def state(self):
+    def native_value(self):
         """Return the state of the sensor."""
         return self.coordinator.data.get(self._sensor)
 

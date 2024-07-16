@@ -48,9 +48,8 @@ class OBDCommand:
         command,
         _bytes,
         decoder,
-        ecu=ECU.ALL,
         fast=False,
-        header=ECU_HEADER.ENGINE,
+        header,
     ) -> None:
         """Initialise."""
         self.name = name  # human readable name (also used as key in commands dict)
@@ -58,7 +57,6 @@ class OBDCommand:
         self.command = command  # command string
         self.bytes = _bytes  # number of bytes expected in return
         self.decode = decoder  # decoding function
-        self.ecu = ecu  # ECU ID from which this command expects messages from
         self.fast = fast  # can an extra digit be added to the end of the command? (to make the ELM return early)
         self.header = header  # ECU header used for the queries
 

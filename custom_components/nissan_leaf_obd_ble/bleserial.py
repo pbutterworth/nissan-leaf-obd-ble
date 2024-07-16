@@ -1,3 +1,5 @@
+"""Module to implement a serial-like interface over BLE GATT."""
+
 import asyncio
 import logging
 
@@ -14,6 +16,7 @@ class bleserial:
     __buffer = bytearray()
 
     def __init__(self, device: BLEDevice, service_uuid, characteristic_uuid) -> None:
+        """Initialise."""
         self.device = device
         self.service_uuid = service_uuid
         self.characteristic_uuid = characteristic_uuid
@@ -30,42 +33,52 @@ class bleserial:
             await asyncio.sleep(0.01)
 
     def reset_input_buffer(self):
+        """Reset the input buffer."""
         logger.debug("Resetting input buffer")
         self._rx_buffer.clear()
 
     def reset_output_buffer(self):
+        """Reset the output buffer."""
         logger.debug("Resetting output buffer")
         # Since there's no explicit output buffer, this is a no-op.
 
     def flush(self):
+        """Reset the input and the output buffer."""
         self.reset_input_buffer()
         self.reset_output_buffer()
 
     @property
     def in_waiting(self):
+        """Return the number of bytes in the receive buffer."""
         return len(self._rx_buffer)
 
     @property
     def timeout(self):
+        """Timeout duration."""
         return self._timeout
 
     @timeout.setter
     def timeout(self, value):
+        """Set the timeout duration."""
         self._timeout = value
 
     @property
     def write_timeout(self):
+        """Write timeout duration."""
         return self._write_timeout
 
     @write_timeout.setter
     def write_timeout(self, value):
+        """Set the write timeout duration."""
         self._write_timeout = value
 
     def _notification_handler(self, sender, data):
+        """Handle when a GATT notification arrives."""
         logger.debug("Notification received: %s", data)
         self._rx_buffer.extend(data)
 
     async def open(self):
+        """Open the port."""
         self.client = BleakClient(self.device)
         try:
             logger.debug("Connecting to device: %s", self.device)
@@ -84,6 +97,7 @@ class bleserial:
             raise
 
     async def close(self):
+        """Close the port."""
         if self.client:
             try:
                 logger.debug(
@@ -100,6 +114,7 @@ class bleserial:
                 raise
 
     async def write(self, data):
+        """Write bytes."""
         if isinstance(data, str):
             data = data.encode()
         try:
@@ -115,6 +130,7 @@ class bleserial:
             raise
 
     async def read(self, size=1):
+        """Read from the buffer."""
         try:
             logger.debug("Reading %s bytes of data", size)
             while len(self._rx_buffer) < size:
@@ -128,6 +144,7 @@ class bleserial:
             raise
 
     async def readline(self):
+        """Read a whole line from the buffer."""
         try:
             logger.debug("Reading line")
             await asyncio.wait_for(self._wait_for_line(), timeout=self._timeout)
@@ -136,30 +153,9 @@ class bleserial:
             self._rx_buffer = self._rx_buffer[index:]
             logger.debug("Read line: %s", data)
             return bytes(data)
-        except asyncio.TimeoutError:
+        except TimeoutError as e:
             logger.error("Readline operation timed out")
-            raise BleakError("Readline operation timed out")
+            raise BleakError("Readline operation timed out") from e
         except Exception as e:
             logger.error("Failed to read line: %s", e)
             raise
-
-
-# # Example usage:
-# async def main():
-#     service_uuid = "0000ffe0-0000-1000-8000-00805f9b34fb"  # Replace with your service UUID
-#     characteristic_uuid = "0000ffe1-0000-1000-8000-00805f9b34fb"  # Replace with your characteristic UUID
-
-#     async_serial = bleserial(service_uuid, characteristic_uuid)
-#     try:
-#         await async_serial.open()
-
-#         await async_serial.write("ATZ\r")
-#         response = await async_serial.read(2)
-#         print("Received:", response)
-
-#     except Exception as e:
-#         print(f"An error occurred: {e}")
-#     finally:
-#         await async_serial.close()
-
-# asyncio.run(main())

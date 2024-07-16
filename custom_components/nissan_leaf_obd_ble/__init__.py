@@ -5,7 +5,6 @@ https://github.com/pbutterworth/nissan-leaf-obd-ble
 """
 
 import asyncio
-from datetime import timedelta
 import logging
 
 from bleak_retry_connector import get_device
@@ -13,14 +12,12 @@ from bleak_retry_connector import get_device
 from homeassistant.components import bluetooth
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_ADDRESS
-from homeassistant.core import Config, HomeAssistant
+from homeassistant.core import Config, HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryNotReady
-from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api import NissanLeafObdBleApiClient
 from .const import DOMAIN, PLATFORMS, STARTUP_MESSAGE
-
-SCAN_INTERVAL = timedelta(minutes=1)
+from .coordinator import NissanLeafObdBleDataUpdateCoordinator
 
 _LOGGER: logging.Logger = logging.getLogger(__package__)
 
@@ -42,59 +39,43 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     ) or await get_device(address)
     if not ble_device:
         raise ConfigEntryNotReady(
-            f"Could not find chlorinator device with address {address}"
+            f"Could not find OBDBLE device with address {address}"
         )
 
-    client = NissanLeafObdBleApiClient(ble_device)
+    api = NissanLeafObdBleApiClient(address)
+    coordinator = NissanLeafObdBleDataUpdateCoordinator(hass, address=address, api=api)
 
-    coordinator = NissanLeafObdBleDataUpdateCoordinator(hass, client=client)
-    await coordinator.async_refresh()
+    # await coordinator.async_refresh()
 
-    if not coordinator.last_update_success:
-        raise ConfigEntryNotReady
+    # if not coordinator.last_update_success:
+    #     raise ConfigEntryNotReady
 
     hass.data[DOMAIN][entry.entry_id] = coordinator
 
-    for platform in PLATFORMS:
-        if entry.options.get(platform, True):
-            coordinator.platforms.append(platform)
-            # hass.async_create_task(
-            await hass.config_entries.async_forward_entry_setup(entry, platform)
-            # )
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
-    entry.add_update_listener(async_reload_entry)
-    return True
-
-
-class NissanLeafObdBleDataUpdateCoordinator(DataUpdateCoordinator):
-    """Class to manage fetching data from the API."""
-
-    def __init__(
-        self,
-        hass: HomeAssistant,
-        client: NissanLeafObdBleApiClient,
+    @callback
+    def _async_specific_device_found(
+        service_info: bluetooth.BluetoothServiceInfoBleak,
+        change: bluetooth.BluetoothChange,
     ) -> None:
-        """Initialize."""
-        self._data = {}
-        self.api = client
-        self.platforms = []
+        """Handle re-discovery of the device."""
+        _LOGGER.debug("New service_info: %s - %s", service_info, change)
+        # have just discovered the device is back in range - ping the coordinator to update immediately
+        hass.async_create_task(coordinator.async_request_refresh())
 
-        super().__init__(
+    # stuff to do when cleaning up
+    entry.async_on_unload(
+        bluetooth.async_register_callback(
             hass,
-            _LOGGER,
-            name=DOMAIN,
-            update_interval=SCAN_INTERVAL,
-            always_update=False,
-        )
+            _async_specific_device_found,
+            {"address": address},
+            bluetooth.BluetoothScanningMode.ACTIVE,
+        )  # does the register callback, and returns a cancel callback for cleanup
+    )
 
-    async def _async_update_data(self):
-        """Update data via library."""
-        try:
-            self._data.update(await self.api.async_get_data())
-        except Exception as exception:
-            raise UpdateFailed from exception
-        else:
-            return self._data
+    # entry.add_update_listener(async_reload_entry)
+    return True
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:

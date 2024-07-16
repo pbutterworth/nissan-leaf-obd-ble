@@ -34,13 +34,10 @@ import logging
 
 from bleak.backends.device import BLEDevice
 
-from .commands import commands
-
-# import asyncio
-from .elm327 import ELM327
+# from .commands import commands
+from .elm327 import ELM327, OBDStatus
 from .OBDResponse import OBDResponse
 from .protocols import ECU_HEADER
-from .utils import OBDStatus
 
 logger = logging.getLogger(__name__)
 
@@ -50,24 +47,17 @@ class OBD:
 
     def __init__(
         self,
-        cls,
         device: BLEDevice,
-        protocol=None,
         fast=True,
         timeout=0.1,
-        check_voltage=True,
-        start_low_power=False,
     ) -> None:
         """Initialise."""
         self.interface = None
-        self.supported_commands = set(commands.base_commands())
+        # self.supported_commands = set(commands.base_commands())
         self.fast = fast  # global switch for disabling optimizations
         self.timeout = timeout
         self.__device = device
-        # self.__last_command = b""  # used for running the previous command with a CR
-        self.__last_header = (
-            ECU_HEADER.ENGINE
-        )  # for comparing with the previously used header
+        self.__last_header = ()  # for comparing with the previously used header
         self.__frame_counts = {}  # keeps track of the number of return frames for each command
 
     @classmethod
@@ -81,16 +71,12 @@ class OBD:
         start_low_power=False,
     ):
         """Manufacture instance."""
-        self = cls(cls, device, protocol, fast, timeout, check_voltage, start_low_power)
+        self = cls(device, fast, timeout)
 
-        logger.info("======================= python-OBD (v%s) =======================")
+        logger.debug("Connecting to BLEDevice")
         await self.__connect(
             protocol, check_voltage, start_low_power
         )  # initialize by connecting and loading sensors
-        # await self.__load_commands()  # try to load the car's supported commands
-        logger.info(
-            "==================================================================="
-        )
         return self
 
     async def __connect(self, protocol, check_voltage, start_low_power):
@@ -145,11 +131,10 @@ class OBD:
     async def close(self):
         """Close the connection, and clears supported_commands."""
 
-        self.supported_commands = set()
+        # self.supported_commands = set()
 
         if self.interface is not None:
             logger.info("Closing connection")
-            await self.__set_header(ECU_HEADER.ENGINE)
             await self.interface.close()
             self.interface = None
 
@@ -191,25 +176,25 @@ class OBD:
         """
         return self.status() == OBDStatus.CAR_CONNECTED
 
-    def supports(self, cmd):
-        """Return a boolean for whether the given command is supported by the car."""
-        return cmd in self.supported_commands
+    # def supports(self, cmd):
+    #     """Return a boolean for whether the given command is supported by the car."""
+    #     return cmd in self.supported_commands
 
-    def test_cmd(self, cmd, warn=True):
-        """Return. a boolean for whether a command will be sent without using force=True."""
-        # test if the command is supported
-        if not self.supports(cmd):
-            if warn:
-                logger.warning("'%s' is not supported", str(cmd))
-            return False
+    # def test_cmd(self, cmd, warn=True):
+    #     """Return. a boolean for whether a command will be sent without using force=True."""
+    #     # test if the command is supported
+    #     if not self.supports(cmd):
+    #         if warn:
+    #             logger.warning("'%s' is not supported", str(cmd))
+    #         return False
 
-        # mode 06 is only implemented for the CAN protocols
-        if cmd.mode == 6 and self.interface.protocol_id() not in ["6", "7", "8", "9"]:
-            if warn:
-                logger.warning("Mode 06 commands are only supported over CAN protocols")
-            return False
+    #     # mode 06 is only implemented for the CAN protocols
+    #     if cmd.mode == 6 and self.interface.protocol_id() not in ["6", "7", "8", "9"]:
+    #         if warn:
+    #             logger.warning("Mode 06 commands are only supported over CAN protocols")
+    #         return False
 
-        return True
+    #     return True
 
     async def query(self, cmd, force=False):
         """Primary API function. Send commands to the car, and protect against sending unsupported commands."""
@@ -229,12 +214,6 @@ class OBD:
         messages = await self.interface.send_and_parse(cmd_string)
         for f in messages[0].frames:
             logger.debug("Received frame: %s", f.raw)
-
-        # if we're sending a new command, note it
-        # first check that the current command WASN'T sent as an empty CR
-        # (CR is added by the ELM327 class)
-        # if cmd_string:
-        #     self.__last_command = cmd_string
 
         # if we don't already know how many frames this command returns,
         # log it, so we can specify it next time
@@ -261,10 +240,5 @@ class OBD:
         # timeouts from the ELM, thus speeding up queries.
         if self.fast and cmd.fast and (cmd in self.__frame_counts):
             cmd_string += str(self.__frame_counts[cmd]).encode()
-
-        # if we sent this last time, just send a CR
-        # (CR is added by the ELM327 class)
-        # if self.fast and (cmd_string == self.__last_command):
-        #     cmd_string = b""
 
         return cmd_string

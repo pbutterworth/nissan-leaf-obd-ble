@@ -53,10 +53,18 @@ from .protocols.protocol_legacy import (
     ISO_14230_4_fast,
 )
 from .protocols.protocol_unknown import UnknownProtocol
-from .utils import OBDStatus
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.WARNING)
+
+
+class OBDStatus:
+    """Values for the connection status flags."""
+
+    NOT_CONNECTED = "Not Connected"
+    ELM_CONNECTED = "ELM Connected"
+    OBD_CONNECTED = "OBD Connected"
+    CAR_CONNECTED = "Car Connected"
 
 
 class ELM327:
@@ -100,17 +108,14 @@ class ELM327:
         "A",  # SAE_J1939
     ]
 
+    # GATT UUIDs specifically for LeLink OBD BLE dongle
     SERVICE_UUID = "0000ffe0-0000-1000-8000-00805f9b34fb"
     CHARACTERISTIC_UUID = "0000ffe1-0000-1000-8000-00805f9b34fb"
 
     def __init__(
         self,
-        cls,
         device: BLEDevice,
-        protocol,
         timeout,
-        check_voltage=True,
-        start_low_power=False,
     ) -> None:
         """Initialise."""
         self.__status = OBDStatus.NOT_CONNECTED
@@ -129,7 +134,7 @@ class ELM327:
         start_low_power=False,
     ):
         """Initialize ELM327."""
-        self = cls(cls, device, protocol, timeout, check_voltage, start_low_power)
+        self = cls(device, timeout)
 
         logger.info(
             "Initializing ELM327: PROTOCOL=%s",
@@ -139,7 +144,7 @@ class ELM327:
         # ------------- open port -------------
         try:
             await self.__port.open()
-        except Exception as e:
+        except Exception:
             logger.warning(
                 "An error occurred: %s", ("auto" if protocol is None else protocol,)
             )
@@ -207,7 +212,7 @@ class ELM327:
                 if float(r[0].lower().replace("v", "")) < 6:
                     logger.error("OBD2 socket disconnected")
                     return self
-            except ValueError as e:
+            except ValueError:
                 await self.__error("Incorrect response from 'AT RV'")
                 return self
             # by now, we've successfuly connected to the OBD socket
@@ -233,16 +238,15 @@ class ELM327:
             # an explicit protocol was specified
             if protocol_ not in self._SUPPORTED_PROTOCOLS:
                 logger.error(
-                    f"{protocol_} is not a valid protocol. Please use 1 through A"
+                    "%s is not a valid protocol. Please use 1 through A", protocol_
                 )
                 return False
-            return await self.manual_protocol(protocol_)
-        else:
-            # auto detect the protocol
-            return await self.auto_protocol()
+            return await self._manual_protocol(protocol_)
+        # auto detect the protocol
+        return await self.auto_protocol()
 
-    async def manual_protocol(self, protocol_):
-        r = await self.__send(b"ATSP" + protocol_.encode())
+    async def _manual_protocol(self, protocol_):
+        await self.__send(b"ATSP" + protocol_.encode())
         r0100 = await self.__send(b"0100")
 
         if not self.__has_message(r0100, "UNABLE TO CONNECT"):
@@ -253,8 +257,7 @@ class ELM327:
         return False
 
     async def auto_protocol(self):
-        """
-        Attempts communication with the car.
+        """Attempt communication with the car.
 
         If no protocol is specified, then protocols at tried with `ATTP`
 
@@ -286,19 +289,19 @@ class ELM327:
             # jackpot, instantiate the corresponding protocol handler
             self.__protocol = self._SUPPORTED_PROTOCOLS[p](r0100)
             return True
-        else:
-            # an unknown protocol
-            # this is likely because not all adapter/car combinations work
-            # in "auto" mode. Some respond to ATDPN responded with "0"
-            logger.debug("ELM responded with unknown protocol. Trying them one-by-one")
 
-            for p in self._TRY_PROTOCOL_ORDER:
-                r = await self.__send(b"ATTP" + p.encode())
-                r0100 = await self.__send(b"0100")
-                if not self.__has_message(r0100, "UNABLE TO CONNECT"):
-                    # success, found the protocol
-                    self.__protocol = self._SUPPORTED_PROTOCOLS[p](r0100)
-                    return True
+        # an unknown protocol
+        # this is likely because not all adapter/car combinations work
+        # in "auto" mode. Some respond to ATDPN responded with "0"
+        logger.debug("ELM responded with unknown protocol. Trying them one-by-one")
+
+        for p in self._TRY_PROTOCOL_ORDER:
+            r = await self.__send(b"ATTP" + p.encode())
+            r0100 = await self.__send(b"0100")
+            if not self.__has_message(r0100, "UNABLE TO CONNECT"):
+                # success, found the protocol
+                self.__protocol = self._SUPPORTED_PROTOCOLS[p](r0100)
+                return True
 
         # if we've come this far, then we have failed...
         logger.error("Failed to determine protocol")
@@ -311,8 +314,7 @@ class ELM327:
             # don't test for the echo itself
             # allow the adapter to already have echo disabled
             return self.__has_message(lines, "OK")
-        else:
-            return len(lines) == 1 and lines[0] == "OK"
+        return len(lines) == 1 and lines[0] == "OK"
 
     def __has_message(self, lines, text):
         for line in lines:
@@ -321,25 +323,27 @@ class ELM327:
         return False
 
     async def __error(self, msg):
-        """handles fatal failures, print logger.info info and closes serial"""
+        """Handle fatal failures, print logger.info info and closes serial."""
         await self.close()
         logger.error(str(msg))
 
     def status(self):
+        """Return the status."""
         return self.__status
 
-    def ecus(self):
-        return self.__protocol.ecu_map.values()
+    # def ecus(self):
+    #     return self.__protocol.ecu_map.values()
 
     def protocol_name(self):
+        """Return the protocol name."""
         return self.__protocol.ELM_NAME
 
     def protocol_id(self):
+        """Return the protocol ID."""
         return self.__protocol.ELM_ID
 
     async def low_power(self):
-        """
-        Enter Low Power mode
+        """Enter Low Power mode.
 
         This command causes the ELM327 to shut off all but essential
         services.
@@ -368,8 +372,7 @@ class ELM327:
         return lines
 
     async def normal_power(self):
-        """
-        Exit Low Power mode
+        """Exit Low Power mode.
 
         Send a space to trigger the RS232 to wakeup.
 
@@ -440,23 +443,21 @@ class ELM327:
 
         delayed = 0.0
         if delay is not None:
-            logger.debug("wait: %d seconds" % delay)
+            logger.debug("wait: %d seconds", delay)
             await asyncio.sleep(delay)
             delayed += delay
 
         r = await self.__read(end_marker=end_marker)
         while delayed < 1.0 and len(r) <= 0:
             d = 0.1
-            logger.debug("no response; wait: %f seconds" % d)
+            logger.debug("no response; wait: %f seconds", d)
             await asyncio.sleep(d)
             delayed += d
             r = await self.__read(end_marker=end_marker)
         return r
 
     async def __write(self, cmd):
-        """
-        "low-level" function to write a string to the port
-        """
+        """Low-level function to write a string to the port."""
 
         if self.__port:
             cmd += b"\r"  # terminate with carriage return in accordance with ELM327 and STN11XX specifications
@@ -466,7 +467,7 @@ class ELM327:
                 await self.__port.write(cmd)  # turn the string into bytes and write
                 # self.__port.flush()  # wait for the output buffer to finish transmitting
             except Exception as e:
-                logger.critical("Device disconnected while writing: {e}")
+                logger.critical("Device disconnected while writing: %s", e)
                 self.__status = OBDStatus.NOT_CONNECTED
                 await self.__port.close()
                 self.__port = None
@@ -475,8 +476,7 @@ class ELM327:
             logger.info("cannot perform __write() when unconnected")
 
     async def __read(self, end_marker=ELM_PROMPT):
-        """
-        "low-level" read function
+        """Low-level read function.
 
         accumulates characters until the end marker (by
         default, the prompt character) is seen

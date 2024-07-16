@@ -20,14 +20,12 @@ class NissanLeafObdBleApiClient:
     ) -> None:
         """Initialise."""
         self._ble_device = ble_device
-        self._result: dict = None
 
     async def async_get_data(self) -> dict:
         """Get data from the API."""
-        self._result = {}
 
         if self._ble_device is None:
-            return self._result
+            return {}
 
         api = await OBD.create(self._ble_device, protocol="6")
 

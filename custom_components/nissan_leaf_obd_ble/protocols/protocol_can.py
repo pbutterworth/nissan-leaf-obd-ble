@@ -1,5 +1,4 @@
-# -*- coding: utf-8 -*-
-
+"""A python OBD-II serial module derived from pyobd."""
 ########################################################################
 #                                                                      #
 # python-OBD: A python OBD-II serial module derived from pyobd         #
@@ -30,8 +29,8 @@
 #                                                                      #
 ########################################################################
 
-import logging
 from binascii import unhexlify
+import logging
 
 from ..utils import contiguous
 from .protocol import Protocol
@@ -40,6 +39,8 @@ logger = logging.getLogger(__name__)
 
 
 class CANProtocol(Protocol):
+    """CAN protocol handler."""
+
     TX_ID_ENGINE = 0
     TX_ID_TRANSMISSION = 1
 
@@ -47,13 +48,14 @@ class CANProtocol(Protocol):
     FRAME_TYPE_FF = 0x10  # first frame of multi-frame message
     FRAME_TYPE_CF = 0x20  # consecutive frame(s) of multi-frame message
 
-    def __init__(self, lines_0100, id_bits):
+    def __init__(self, lines_0100, id_bits) -> None:
+        """Initialise."""
         # this needs to be set FIRST, since the base
         # Protocol __init__ uses the parsing system.
         self.id_bits = id_bits
         Protocol.__init__(self, lines_0100)
 
-    def parse_frame(self, frame):
+    def _parse_frame(self, frame):
         raw = frame.raw
 
         # pad 11-bit CAN headers out to 32 bits for consistency,
@@ -163,7 +165,7 @@ class CANProtocol(Protocol):
 
         return True
 
-    def parse_message(self, message):
+    def _parse_message(self, message):
         frames = message.frames
 
         if len(frames) == 1:
@@ -199,7 +201,7 @@ class CANProtocol(Protocol):
             if len(ff) > 1:
                 logger.debug("Recieved multiple frames marked FF")
                 return False
-            elif len(ff) == 0:
+            if len(ff) == 0:
                 logger.debug("Never received frame marked FF")
                 return False
 
@@ -284,40 +286,55 @@ class CANProtocol(Protocol):
 
 
 class ISO_15765_4_11bit_500k(CANProtocol):
+    """ISO 15765-4 (CAN 11/500)."""
+
     ELM_NAME = "ISO 15765-4 (CAN 11/500)"
     ELM_ID = "6"
 
-    def __init__(self, lines_0100):
+    def __init__(self, lines_0100) -> None:
+        """Initialise."""
         CANProtocol.__init__(self, lines_0100, id_bits=11)
 
 
 class ISO_15765_4_29bit_500k(CANProtocol):
+    """15765-4 (CAN 29/500)."""
+
     ELM_NAME = "ISO 15765-4 (CAN 29/500)"
     ELM_ID = "7"
 
-    def __init__(self, lines_0100):
+    def __init__(self, lines_0100) -> None:
+        """Initialise."""
         CANProtocol.__init__(self, lines_0100, id_bits=29)
 
 
 class ISO_15765_4_11bit_250k(CANProtocol):
+    """ISO 15765-4 (CAN 11/250)."""
+
     ELM_NAME = "ISO 15765-4 (CAN 11/250)"
     ELM_ID = "8"
 
-    def __init__(self, lines_0100):
+    def __init__(self, lines_0100) -> None:
+        """Initialise."""
         CANProtocol.__init__(self, lines_0100, id_bits=11)
 
 
 class ISO_15765_4_29bit_250k(CANProtocol):
+    """ISO 15765-4 (CAN 29/250)."""
+
     ELM_NAME = "ISO 15765-4 (CAN 29/250)"
     ELM_ID = "9"
 
-    def __init__(self, lines_0100):
+    def __init__(self, lines_0100) -> None:
+        """Initialise."""
         CANProtocol.__init__(self, lines_0100, id_bits=29)
 
 
 class SAE_J1939(CANProtocol):
+    """SAE J1939 (CAN 29/250)."""
+
     ELM_NAME = "SAE J1939 (CAN 29/250)"
     ELM_ID = "A"
 
-    def __init__(self, lines_0100):
+    def __init__(self, lines_0100) -> None:
+        """Initialise."""
         CANProtocol.__init__(self, lines_0100, id_bits=29)

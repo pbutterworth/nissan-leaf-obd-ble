@@ -1,5 +1,4 @@
-# -*- coding: utf-8 -*-
-
+"""A python OBD-II serial module derived from pyobd."""
 ########################################################################
 #                                                                      #
 # python-OBD: A python OBD-II serial module derived from pyobd         #
@@ -30,8 +29,8 @@
 #                                                                      #
 ########################################################################
 
-import logging
 from binascii import unhexlify
+import logging
 
 from ..utils import contiguous
 from .protocol import Protocol
@@ -40,12 +39,15 @@ logger = logging.getLogger(__name__)
 
 
 class LegacyProtocol(Protocol):
+    """Legacy protocol handler."""
+
     TX_ID_ENGINE = 0x10
 
-    def __init__(self, lines_0100):
+    def __init__(self, lines_0100) -> None:
+        """Initialise."""
         Protocol.__init__(self, lines_0100)
 
-    def parse_frame(self, frame):
+    def _parse_frame(self, frame):
         raw = frame.raw
 
         # Handle odd size frames and drop
@@ -78,7 +80,7 @@ class LegacyProtocol(Protocol):
 
         return True
 
-    def parse_message(self, message):
+    def _parse_message(self, message):
         frames = message.frames
 
         # len(frames) will always be >= 1 (see the caller, protocol.py)
@@ -117,49 +119,48 @@ class LegacyProtocol(Protocol):
             for f in frames:
                 message.data += f.data[1:]
 
-        else:
-            if len(frames) == 1:
-                # return data, excluding the mode/pid bytes
+        elif len(frames) == 1:
+            # return data, excluding the mode/pid bytes
 
-                # Ex.
-                #          [  Frame/Data   ]
-                # 48 6B 10 41 00 BE 7F B8 13 ck
+            # Ex.
+            #          [  Frame/Data   ]
+            # 48 6B 10 41 00 BE 7F B8 13 ck
 
-                message.data = frames[0].data
+            message.data = frames[0].data
 
-            else:  # len(frames) > 1:
-                # generic multiline requests carry an order byte
+        else:  # len(frames) > 1:
+            # generic multiline requests carry an order byte
 
-                # Ex.
-                #          [      Frame       ]
-                # 48 6B 10 49 02 01 00 00 00 31 ck
-                # 48 6B 10 49 02 02 44 34 47 50 ck
-                # 48 6B 10 49 02 03 30 30 52 35 ck
-                # etc...         [] [  Data   ]
+            # Ex.
+            #          [      Frame       ]
+            # 48 6B 10 49 02 01 00 00 00 31 ck
+            # 48 6B 10 49 02 02 44 34 47 50 ck
+            # 48 6B 10 49 02 03 30 30 52 35 ck
+            # etc...         [] [  Data   ]
 
-                # becomes:
-                # 49 02 [] 00 00 00 31 44 34 47 50 30 30 52 35
-                #       |  [         ] [         ] [         ]
-                #  order byte is removed
+            # becomes:
+            # 49 02 [] 00 00 00 31 44 34 47 50 30 30 52 35
+            #       |  [         ] [         ] [         ]
+            #  order byte is removed
 
-                # sort the frames by the order byte
-                frames = sorted(frames, key=lambda f: f.data[2])
+            # sort the frames by the order byte
+            frames = sorted(frames, key=lambda f: f.data[2])
 
-                # check contiguity
-                indices = [f.data[2] for f in frames]
-                if not contiguous(indices, 1, len(frames)):
-                    logger.debug("Recieved multiline response with missing frames")
-                    return False
+            # check contiguity
+            indices = [f.data[2] for f in frames]
+            if not contiguous(indices, 1, len(frames)):
+                logger.debug("Recieved multiline response with missing frames")
+                return False
 
-                # now that they're in order, accumulate the data from each frame
+            # now that they're in order, accumulate the data from each frame
 
-                # preserve the first frame's mode and PID bytes (for consistency with CAN)
-                frames[0].data.pop(2)  # remove the sequence byte
-                message.data = frames[0].data
+            # preserve the first frame's mode and PID bytes (for consistency with CAN)
+            frames[0].data.pop(2)  # remove the sequence byte
+            message.data = frames[0].data
 
-                # add the data from the remaining frames
-                for f in frames[1:]:
-                    message.data += f.data[3:]  # loose the mode/pid/seq bytes
+            # add the data from the remaining frames
+            for f in frames[1:]:
+                message.data += f.data[3:]  # loose the mode/pid/seq bytes
 
         return True
 
@@ -172,25 +173,35 @@ class LegacyProtocol(Protocol):
 
 
 class SAE_J1850_PWM(LegacyProtocol):
+    """SAE J1850 PWM."""
+
     ELM_NAME = "SAE J1850 PWM"
     ELM_ID = "1"
 
 
 class SAE_J1850_VPW(LegacyProtocol):
+    """SAE J1850 VPW."""
+
     ELM_NAME = "SAE J1850 VPW"
     ELM_ID = "2"
 
 
 class ISO_9141_2(LegacyProtocol):
+    """ISO 9141-2."""
+
     ELM_NAME = "ISO 9141-2"
     ELM_ID = "3"
 
 
 class ISO_14230_4_5baud(LegacyProtocol):
+    """ISO 14230-4 (KWP 5BAUD)."""
+
     ELM_NAME = "ISO 14230-4 (KWP 5BAUD)"
     ELM_ID = "4"
 
 
 class ISO_14230_4_fast(LegacyProtocol):
+    """ISO 14230-4 (KWP FAST)."""
+
     ELM_NAME = "ISO 14230-4 (KWP FAST)"
     ELM_ID = "5"
