@@ -35,7 +35,8 @@ class NissanLeafObdBleApiClient:
         data = {}
         for command in leaf_commands.values():
             response = await api.query(command, force=True)
-            if len(response.messages) == 0:
+            # the first command is the Mystery command. If this doesn't have a response, then none of the other will
+            if command.name == "unknown" and len(response.messages) == 0:
                 break
             if response.value is not None:
                 data.update(response.value)  # send the command, and parse the response
