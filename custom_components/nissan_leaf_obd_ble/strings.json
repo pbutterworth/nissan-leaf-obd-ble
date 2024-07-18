@@ -1,0 +1,22 @@
+{
+  "options": {
+    "step": {
+      "init": {
+        "title": "Settings",
+        "description": "Settings to control the behaviour of this interface",
+        "data": {
+          "cache_values": "Cache sensor values",
+          "fast_poll": "Fast polling interval (s)",
+          "slow_poll": "Slow polling interval (s)",
+          "xs_poll": "Extra slow polling interval (s)"
+        },
+        "data_description": {
+          "cache_values": "Hold on to sensor values, even when there is no data available.",
+          "fast_poll": "Polling rate to use when actively getting data from the car.",
+          "slow_poll": "Polling rate to use when the car is in range, but turned off.",
+          "xs_poll": "Polling rate to use when the car is out of range. Home Assistant will listen for bluetooth advertisements and update immediately if the car comes back into range."
+        }
+      }
+    }
+  }
+}

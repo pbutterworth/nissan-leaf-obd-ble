@@ -1,5 +1,7 @@
 """Adds config flow for Nissan Leaf OBD BLE."""
 
+from typing import Any
+
 from bluetooth_data_tools import human_readable_name
 import voluptuous as vol
 
@@ -12,8 +14,7 @@ from homeassistant.const import CONF_ADDRESS
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
 
-# from .api import NissanLeafObdBleApiClient
-from .const import DOMAIN, PLATFORMS
+from .const import DOMAIN
 
 LOCAL_NAMES = {"OBDBLE"}
 
@@ -32,7 +33,9 @@ class NissanLeafObdBleFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
     @staticmethod
     @callback
-    def async_get_options_flow(config_entry):
+    def async_get_options_flow(
+        config_entry: config_entries.ConfigEntry,
+    ) -> config_entries.OptionsFlow:
         """Return the options flow."""
         return NissanLeafObdBleOptionsFlowHandler(config_entry)
 
@@ -108,27 +111,36 @@ class NissanLeafObdBleFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 class NissanLeafObdBleOptionsFlowHandler(config_entries.OptionsFlow):
     """Config flow options handler for nissan_leaf_obd_ble."""
 
-    def __init__(self, config_entry) -> None:
-        """Initialize HACS options flow."""
+    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
+        """Initialize options flow."""
         self.config_entry = config_entry
         self.options = dict(config_entry.options)
 
-    async def async_step_init(self, user_input=None):  # pylint: disable=unused-argument
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
         """Manage the options."""
-        return await self.async_step_user()
 
-    async def async_step_user(self, user_input=None):
-        """Handle a flow initialized by the user."""
         if user_input is not None:
             self.options.update(user_input)
             return await self._update_options()
 
         return self.async_show_form(
-            step_id="user",
+            step_id="init",
             data_schema=vol.Schema(
                 {
-                    vol.Required(x, default=self.options.get(x, True)): bool
-                    for x in sorted(PLATFORMS)
+                    vol.Required(
+                        "cache_values", default=self.options.get("cache_values", False)
+                    ): bool,
+                    vol.Required(
+                        "fast_poll", default=self.options.get("fast_poll", 10)
+                    ): int,
+                    vol.Required(
+                        "slow_poll", default=self.options.get("slow_poll", 300)
+                    ): int,
+                    vol.Required(
+                        "xs_poll", default=self.options.get("xs_poll", 3600)
+                    ): int,
                 }
             ),
         )
