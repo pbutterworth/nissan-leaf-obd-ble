@@ -4,7 +4,6 @@ For more details about this integration, please refer to
 https://github.com/pbutterworth/nissan-leaf-obd-ble
 """
 
-import asyncio
 import logging
 
 from bleak_retry_connector import get_device
@@ -43,12 +42,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         )
 
     api = NissanLeafObdBleApiClient(address)
-    coordinator = NissanLeafObdBleDataUpdateCoordinator(hass, address=address, api=api)
-
-    # await coordinator.async_refresh()
-
-    # if not coordinator.last_update_success:
-    #     raise ConfigEntryNotReady
+    coordinator = NissanLeafObdBleDataUpdateCoordinator(
+        hass, address=address, api=api, options=entry.options
+    )
 
     hass.data[DOMAIN][entry.entry_id] = coordinator
 
@@ -74,6 +70,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         )  # does the register callback, and returns a cancel callback for cleanup
     )
 
+    entry.async_on_unload(
+        entry.add_update_listener(update_options_listener)
+    )  # add the listener for when the user changes options
+
     # entry.add_update_listener(async_reload_entry)
     return True
 
@@ -89,3 +89,7 @@ async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Reload config entry."""
     await async_unload_entry(hass, entry)
     await async_setup_entry(hass, entry)
+
+
+async def update_options_listener(hass: HomeAssistant | None, entry):
+    """Handle options update."""

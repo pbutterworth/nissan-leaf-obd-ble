@@ -33,10 +33,7 @@ class NissanLeafObdBleDataUpdateCoordinator(DataUpdateCoordinator):
     """Class to manage fetching data from the API."""
 
     def __init__(
-        self,
-        hass: HomeAssistant,
-        address: str,
-        api: NissanLeafObdBleApiClient,
+        self, hass: HomeAssistant, address: str, api: NissanLeafObdBleApiClient, options
     ) -> None:
         """Initialize."""
         super().__init__(
@@ -49,6 +46,7 @@ class NissanLeafObdBleDataUpdateCoordinator(DataUpdateCoordinator):
         self._address = address
         self.api = api
         self.data: dict[str, Any] = {}
+        self.options = options
 
     async def _async_update_data(self) -> dict[str, Any]:
         """Update data via library."""
@@ -59,18 +57,35 @@ class NissanLeafObdBleDataUpdateCoordinator(DataUpdateCoordinator):
         if not available:
             # Device out of range? Switch to active polling interval for when it reappears
             _LOGGER.debug("Car out of range? Switch to ultra slow polling")
-            self.update_interval = ULTRA_SLOW_POLL_INTERVAL
+            self.update_interval = self._xs_poll_interval
+            if self.options["cache_values"]:
+                return self.data
             return {}
 
         try:
-            data = await self.api.async_get_data()
-            if len(data) == 0:
+            new_data = await self.api.async_get_data()
+            if len(new_data) == 0:
                 # Car is probably off. Switch to slow polling inteval
                 _LOGGER.debug("Car is probably off, switch to slow polling")
-                self.update_interval = SLOW_POLL_INTERVAL
+                self.update_interval = self._slow_poll_interval
             else:
-                self.update_interval = FAST_POLL_INTERVAL
+                self.update_interval = self._xs_poll_interval
         except Exception as err:
             raise UpdateFailed(f"Unable to fetch data: {err}") from err
         else:
-            return data
+            if self.options["cache_values"]:
+                return self.data.update(new_data)
+            return new_data
+
+    @property
+    def options(self):
+        """User configuration options."""
+        return self._options
+
+    @options.setter
+    def options(self, options):
+        """Set the configuration options."""
+        self._options = options
+        self._fast_poll_interval = options["fast_poll"]
+        self._slow_poll_interval = options["slow_poll"]
+        self._xs_poll_interval = options["xs_poll"]
