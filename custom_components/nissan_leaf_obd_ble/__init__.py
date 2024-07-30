@@ -48,6 +48,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
     hass.data[DOMAIN][entry.entry_id] = coordinator
 
+    await coordinator.async_config_entry_first_refresh()
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     @callback
@@ -70,6 +71,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         )  # does the register callback, and returns a cancel callback for cleanup
     )
 
+    async def update_options_listener(hass: HomeAssistant | None, entry: ConfigEntry):
+        """Handle options update."""
+        coordinator.options = entry.options
+
     entry.async_on_unload(
         entry.add_update_listener(update_options_listener)
     )  # add the listener for when the user changes options
@@ -89,7 +94,3 @@ async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Reload config entry."""
     await async_unload_entry(hass, entry)
     await async_setup_entry(hass, entry)
-
-
-async def update_options_listener(hass: HomeAssistant | None, entry):
-    """Handle options update."""

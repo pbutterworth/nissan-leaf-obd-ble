@@ -286,6 +286,7 @@ def tp_rl(messages):
 
 def range_remaining(messages):
     """Decode Remaining range (km) messages."""
+    # todo: fix this decoder
     d = messages[0].data  # only operate on a single message
     v = struct.unpack("!h", d[3:5])[0] / 10
     return {"range_remaining": v}

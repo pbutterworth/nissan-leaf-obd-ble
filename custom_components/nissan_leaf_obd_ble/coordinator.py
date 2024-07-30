@@ -41,11 +41,12 @@ class NissanLeafObdBleDataUpdateCoordinator(DataUpdateCoordinator):
             _LOGGER,
             name=DOMAIN,
             update_interval=FAST_POLL_INTERVAL,
-            always_update=False,
+            always_update=True,
         )
         self._address = address
         self.api = api
-        self.data: dict[str, Any] = {}
+        self._cache_data: dict[str, Any] = {}
+        self.cache_data = {}
         self.options = options
 
     async def _async_update_data(self) -> dict[str, Any]:
@@ -56,25 +57,37 @@ class NissanLeafObdBleDataUpdateCoordinator(DataUpdateCoordinator):
         available = async_address_present(self.hass, self._address, connectable=True)
         if not available:
             # Device out of range? Switch to active polling interval for when it reappears
-            _LOGGER.debug("Car out of range? Switch to ultra slow polling")
-            self.update_interval = self._xs_poll_interval
+            _LOGGER.debug("Car out of range? Switch to extra slow polling")
+            self.update_interval = timedelta(seconds=self._xs_poll_interval)
+            _LOGGER.debug(
+                "Car out of range? Switch to ultra slow polling: interval = %s",
+                self.update_interval,
+            )
             if self.options["cache_values"]:
-                return self.data
+                return self._cache_data
             return {}
 
         try:
             new_data = await self.api.async_get_data()
             if len(new_data) == 0:
                 # Car is probably off. Switch to slow polling inteval
-                _LOGGER.debug("Car is probably off, switch to slow polling")
-                self.update_interval = self._slow_poll_interval
+                self.update_interval = timedelta(seconds=self._slow_poll_interval)
+                _LOGGER.debug(
+                    "Car is probably off, switch to slow polling: interval = %s",
+                    self.update_interval,
+                )
             else:
-                self.update_interval = self._xs_poll_interval
+                self.update_interval = timedelta(seconds=self._fast_poll_interval)
+                _LOGGER.debug(
+                    "Car is on, polling: interval = %s",
+                    self.update_interval,
+                )
         except Exception as err:
             raise UpdateFailed(f"Unable to fetch data: {err}") from err
         else:
             if self.options["cache_values"]:
-                return self.data.update(new_data)
+                self.cache_data.update(new_data)
+                return self.cache_data
             return new_data
 
     @property
