@@ -63,7 +63,8 @@ class ELM327:
 
     # GATT UUIDs specifically for LeLink OBD BLE dongle
     SERVICE_UUID = "0000ffe0-0000-1000-8000-00805f9b34fb"
-    CHARACTERISTIC_UUID = "0000ffe1-0000-1000-8000-00805f9b34fb"
+    CHARACTERISTIC_UUID_READ = "0000ffe1-0000-1000-8000-00805f9b34fb"
+    CHARACTERISTIC_UUID_WRITE = "0000ffe1-0000-1000-8000-00805f9b34fb"
 
     def __init__(
         self,
@@ -74,7 +75,7 @@ class ELM327:
         self.__status = OBDStatus.NOT_CONNECTED
         self.__low_power = False
         self.timeout = timeout
-        self.__port = bleserial(device, self.SERVICE_UUID, self.CHARACTERISTIC_UUID)
+        self.__port = bleserial(device, self.SERVICE_UUID, self.CHARACTERISTIC_UUID_READ, self.CHARACTERISTIC_UUID_WRITE)
         self.__protocol = ISO_15765_4_11bit_500k()
 
     @classmethod

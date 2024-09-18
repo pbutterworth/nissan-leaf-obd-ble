@@ -15,11 +15,12 @@ class bleserial:
 
     __buffer = bytearray()
 
-    def __init__(self, device: BLEDevice, service_uuid, characteristic_uuid) -> None:
+    def __init__(self, device: BLEDevice, service_uuid, characteristic_uuid_read, characteristic_uuid_write) -> None:
         """Initialise."""
         self.device = device
         self.service_uuid = service_uuid
-        self.characteristic_uuid = characteristic_uuid
+        self.characteristic_uuid_read = characteristic_uuid_read
+        self.characteristic_uuid_write = characteristic_uuid_write
         self.client = None
         self._rx_buffer = bytearray()
         self._timeout = None
@@ -86,10 +87,10 @@ class bleserial:
             logger.debug("Connected to device: %s", self.device)
             logger.debug(
                 "Starting notifications on characteristic UUID: %s",
-                self.characteristic_uuid,
+                self.characteristic_uuid_read,
             )
             await self.client.start_notify(
-                self.characteristic_uuid, self._notification_handler
+                self.characteristic_uuid_read, self._notification_handler
             )
             logger.debug("Notifications started")
         except BleakError as e:
@@ -102,9 +103,9 @@ class bleserial:
             try:
                 logger.debug(
                     "Stopping notifications on characteristic UUID: %s",
-                    self.characteristic_uuid,
+                    self.characteristic_uuid_read,
                 )
-                await self.client.stop_notify(self.characteristic_uuid)
+                await self.client.stop_notify(self.characteristic_uuid_read)
                 logger.debug("Notifications stopped")
                 logger.debug("Disconnecting from device")
                 await self.client.disconnect()
@@ -120,10 +121,10 @@ class bleserial:
         try:
             logger.info(
                 "Writing data to characteristic UUID: %s Data: %s",
-                self.characteristic_uuid,
+                self.characteristic_uuid_write,
                 data,
             )
-            await self.client.write_gatt_char(self.characteristic_uuid, data)
+            await self.client.write_gatt_char(self.characteristic_uuid_write, data)
             logger.debug("Data written")
         except BleakError as e:
             logger.error("Failed to write data: %s", e)
