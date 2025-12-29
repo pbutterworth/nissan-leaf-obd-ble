@@ -37,7 +37,7 @@ class NissanLeafObdBleFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         config_entry: config_entries.ConfigEntry,
     ) -> config_entries.OptionsFlow:
         """Return the options flow."""
-        return NissanLeafObdBleOptionsFlowHandler(config_entry)
+        return NissanLeafObdBleOptionsFlowHandler()
 
     async def async_step_bluetooth(
         self, discovery_info: BluetoothServiceInfoBleak
@@ -111,15 +111,16 @@ class NissanLeafObdBleFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 class NissanLeafObdBleOptionsFlowHandler(config_entries.OptionsFlow):
     """Config flow options handler for nissan_leaf_obd_ble."""
 
-    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
+    def __init__(self) -> None:
         """Initialize options flow."""
-        self.config_entry = config_entry
-        self.options = dict(config_entry.options)
+        self.options: dict = {}
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
         """Manage the options."""
+        if not self.options:
+            self.options = dict(self.config_entry.options)
 
         if user_input is not None:
             self.options.update(user_input)
