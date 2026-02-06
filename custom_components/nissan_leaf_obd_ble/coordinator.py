@@ -63,7 +63,7 @@ class NissanLeafObdBleDataUpdateCoordinator(DataUpdateCoordinator):
                 "Car out of range? Switch to ultra slow polling: interval = %s",
                 self.update_interval,
             )
-            if self.options["cache_values"]:
+            if self.options.get("cache_values", False):
                 return self._cache_data
             return {}
 
@@ -85,7 +85,7 @@ class NissanLeafObdBleDataUpdateCoordinator(DataUpdateCoordinator):
         except Exception as err:
             raise UpdateFailed(f"Unable to fetch data: {err}") from err
         else:
-            if self.options["cache_values"]:
+            if self.options.get("cache_values", False):
                 self.cache_data.update(new_data)
                 return self.cache_data
             return new_data
@@ -99,6 +99,6 @@ class NissanLeafObdBleDataUpdateCoordinator(DataUpdateCoordinator):
     def options(self, options):
         """Set the configuration options."""
         self._options = options
-        self._fast_poll_interval = options["fast_poll"]
-        self._slow_poll_interval = options["slow_poll"]
-        self._xs_poll_interval = options["xs_poll"]
+        self._fast_poll_interval = options.get("fast_poll", 10)
+        self._slow_poll_interval = options.get("slow_poll", 300)
+        self._xs_poll_interval = options.get("xs_poll", 3600)
