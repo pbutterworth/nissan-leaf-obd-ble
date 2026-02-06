@@ -2,7 +2,12 @@
 
 from typing import Any
 
-from bluetooth_data_tools import human_readable_name
+try:
+    from bluetooth_data_tools import human_readable_name
+except ImportError:  # pragma: no cover - fallback for missing dependency
+    def human_readable_name(_manufacturer: str | None, name: str | None, address: str):
+        """Fallback if bluetooth_data_tools is unavailable."""
+        return name or address
 import voluptuous as vol
 
 from homeassistant import config_entries
@@ -19,7 +24,7 @@ from .const import DOMAIN
 LOCAL_NAMES = {"OBDBLE"}
 
 
-class NissanLeafObdBleFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
+class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Config flow handler."""
 
     VERSION = 1
