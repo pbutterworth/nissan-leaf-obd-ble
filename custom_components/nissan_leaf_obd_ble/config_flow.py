@@ -2,7 +2,12 @@
 
 from typing import Any
 
-from bluetooth_data_tools import human_readable_name
+try:
+    from bluetooth_data_tools import human_readable_name
+except ImportError:  # pragma: no cover - fallback for missing dependency
+    def human_readable_name(_manufacturer: str | None, name: str | None, address: str):
+        """Fallback if bluetooth_data_tools is unavailable."""
+        return name or address
 import voluptuous as vol
 
 from homeassistant import config_entries
@@ -19,7 +24,7 @@ from .const import DOMAIN
 LOCAL_NAMES = {"OBDBLE"}
 
 
-class NissanLeafObdBleFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
+class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Config flow handler."""
 
     VERSION = 1
@@ -37,7 +42,7 @@ class NissanLeafObdBleFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         config_entry: config_entries.ConfigEntry,
     ) -> config_entries.OptionsFlow:
         """Return the options flow."""
-        return NissanLeafObdBleOptionsFlowHandler(config_entry)
+        return NissanLeafObdBleOptionsFlowHandler()
 
     async def async_step_bluetooth(
         self, discovery_info: BluetoothServiceInfoBleak
@@ -111,15 +116,16 @@ class NissanLeafObdBleFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 class NissanLeafObdBleOptionsFlowHandler(config_entries.OptionsFlow):
     """Config flow options handler for nissan_leaf_obd_ble."""
 
-    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
+    def __init__(self) -> None:
         """Initialize options flow."""
-        self.config_entry = config_entry
-        self.options = dict(config_entry.options)
+        self.options: dict = {}
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
         """Manage the options."""
+        if not self.options:
+            self.options = dict(self.config_entry.options)
 
         if user_input is not None:
             self.options.update(user_input)
