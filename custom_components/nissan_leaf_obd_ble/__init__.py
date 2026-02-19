@@ -12,8 +12,8 @@ from homeassistant.components import bluetooth
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_ADDRESS
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.typing import ConfigType
 from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.helpers.typing import ConfigType
 
 from .api import NissanLeafObdBleApiClient
 from .const import DOMAIN, PLATFORMS, STARTUP_MESSAGE
@@ -42,9 +42,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
             f"Could not find OBDBLE device with address {address}"
         )
 
-    api = NissanLeafObdBleApiClient(address)
+    api = NissanLeafObdBleApiClient(ble_device)
     coordinator = NissanLeafObdBleDataUpdateCoordinator(
-        hass, address=address, api=api, options=entry.options
+        hass, address=address, api=api, options=entry.options or {}
     )
 
     hass.data[DOMAIN][entry.entry_id] = coordinator

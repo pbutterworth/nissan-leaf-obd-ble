@@ -3,25 +3,38 @@
 import asyncio
 import logging
 
-from bleak import BleakClient, BleakError
+from bleak import BleakClient
 from bleak.backends.device import BLEDevice
+from bleak.exc import BleakError
+from bleak_retry_connector import (
+    BleakAbortedError,
+    BleakClientWithServiceCache,
+    BleakConnectionError,
+    BleakNotFoundError,
+    BleakOutOfConnectionSlotsError,
+    establish_connection,
+)
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.WARNING)
-
 
 class bleserial:
     """Encapsulates the ble connection and make it appear something like a UART port."""
 
     __buffer = bytearray()
 
-    def __init__(self, device: BLEDevice, service_uuid, characteristic_uuid_read, characteristic_uuid_write) -> None:
+    def __init__(
+        self,
+        ble_device: BLEDevice,
+        service_uuid,
+        characteristic_uuid_read,
+        characteristic_uuid_write,
+    ) -> None:
         """Initialise."""
-        self.device = device
-        self.service_uuid = service_uuid
-        self.characteristic_uuid_read = characteristic_uuid_read
-        self.characteristic_uuid_write = characteristic_uuid_write
-        self.client = None
+        self._ble_device: BLEDevice = ble_device
+        self._service_uuid = service_uuid
+        self._characteristic_uuid_read = characteristic_uuid_read
+        self._characteristic_uuid_write = characteristic_uuid_write
+        self._client: BleakClient | None = None
         self._rx_buffer = bytearray()
         self._timeout = None
 
@@ -80,35 +93,69 @@ class bleserial:
 
     async def open(self):
         """Open the port."""
-        self.client = BleakClient(self.device)
+
+        logger.debug("open port, ble_device: %s", self._ble_device)
+
+        def on_disconnect(client):
+            """Handle unexpected disconnection."""
+            logger.error("BleakClient disconnected unexpectedly")
+            self._client = None
+
         try:
-            logger.debug("Connecting to device: %s", self.device)
-            await self.client.connect()
-            logger.debug("Connected to device: %s", self.device)
+            logger.debug("Connecting to ble_device: %s %s", self._ble_device, self._ble_device.name)
+            self._client = await establish_connection(
+                BleakClientWithServiceCache,  # Use BleakClientWithServiceCache for service caching
+                self._ble_device,
+                self._ble_device.name or "Unknown Device",
+                disconnected_callback=on_disconnect,
+                max_attempts=3,  # Will retry up to 3 times with backoff
+            )
+
+            logger.debug("Connected to ble_device: %s", self._ble_device)
             logger.debug(
                 "Starting notifications on characteristic UUID: %s",
-                self.characteristic_uuid_read,
+                self._characteristic_uuid_read,
             )
-            await self.client.start_notify(
-                self.characteristic_uuid_read, self._notification_handler
+            await self._client.start_notify(
+                self._characteristic_uuid_read, self._notification_handler
             )
             logger.debug("Notifications started")
+        except BleakNotFoundError as e:
+            logger.error("Device not found - it may have moved out of range: %s", e)
+            raise
+
+        except BleakOutOfConnectionSlotsError:
+            logger.error(
+                "No connection slots available - try disconnecting other devices"
+            )
+            raise
+
+        except BleakAbortedError:
+            logger.error("Connection aborted - check for interference or move closer")
+            raise
+
+        except BleakConnectionError as e:
+            logger.error("Connection failed: %s", e)
+            raise
+
         except BleakError as e:
             logger.error("Failed to connect or start notifications: %s", e)
             raise
 
     async def close(self):
         """Close the port."""
-        if self.client:
+        if self._client:
             try:
                 logger.debug(
                     "Stopping notifications on characteristic UUID: %s",
-                    self.characteristic_uuid_read,
+                    self._characteristic_uuid_read,
                 )
-                await self.client.stop_notify(self.characteristic_uuid_read)
+                await self._client.stop_notify(self._characteristic_uuid_read)
                 logger.debug("Notifications stopped")
                 logger.debug("Disconnecting from device")
-                await self.client.disconnect()
+                await self._client.disconnect()
+                self._client = None
+
                 logger.debug("Disconnected from device")
             except BleakError as e:
                 logger.error("Failed to stop notifications or disconnect: %s", e)
@@ -121,10 +168,13 @@ class bleserial:
         try:
             logger.info(
                 "Writing data to characteristic UUID: %s Data: %s",
-                self.characteristic_uuid_write,
+                self._characteristic_uuid_write,
                 data,
             )
-            await self.client.write_gatt_char(self.characteristic_uuid_write, data)
+            if self._client is not None:
+                await self._client.write_gatt_char(
+                    self._characteristic_uuid_write, data
+                )
             logger.debug("Data written")
         except BleakError as e:
             logger.error("Failed to write data: %s", e)

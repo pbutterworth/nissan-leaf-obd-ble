@@ -28,6 +28,10 @@ SLOW_POLL_INTERVAL = timedelta(minutes=5)
 # see __init__.py: _async_specific_device_found()
 ULTRA_SLOW_POLL_INTERVAL = timedelta(hours=1)
 
+DEFAULT_FAST_POLL = 10          # pick sane defaults for your integration
+DEFAULT_SLOW_POLL = 300
+DEFAULT_XS_POLL = 3600
+DEFAULT_CACHE_VALUES = True
 
 class NissanLeafObdBleDataUpdateCoordinator(DataUpdateCoordinator):
     """Class to manage fetching data from the API."""
@@ -99,6 +103,7 @@ class NissanLeafObdBleDataUpdateCoordinator(DataUpdateCoordinator):
     def options(self, options):
         """Set the configuration options."""
         self._options = options
-        self._fast_poll_interval = options.get("fast_poll", 10)
-        self._slow_poll_interval = options.get("slow_poll", 300)
-        self._xs_poll_interval = options.get("xs_poll", 3600)
+        self._fast_poll_interval = options.get("fast_poll", DEFAULT_FAST_POLL)
+        self._slow_poll_interval = options.get("slow_poll", DEFAULT_SLOW_POLL)
+        self._xs_poll_interval = options.get("xs_poll", DEFAULT_XS_POLL)
+        self._xs_poll_interval = options.get("cache_value", DEFAULT_CACHE_VALUES)

@@ -40,7 +40,6 @@ from .OBDResponse import OBDResponse
 
 logger = logging.getLogger(__name__)
 
-
 class OBD:
     """Class representing an OBD-II connection with it's assorted commands/sensors."""
 

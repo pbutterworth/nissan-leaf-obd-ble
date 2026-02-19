@@ -41,8 +41,6 @@ from .protocols.protocol import Message
 from .protocols.protocol_can import ISO_15765_4_11bit_500k
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.WARNING)
-
 
 class OBDStatus:
     """Values for the connection status flags."""
@@ -68,27 +66,32 @@ class ELM327:
 
     def __init__(
         self,
-        device: BLEDevice,
+        ble_device: BLEDevice,
         timeout,
     ) -> None:
         """Initialise."""
         self.__status = OBDStatus.NOT_CONNECTED
         self.__low_power = False
         self.timeout = timeout
-        self.__port = bleserial(device, self.SERVICE_UUID, self.CHARACTERISTIC_UUID_READ, self.CHARACTERISTIC_UUID_WRITE)
+        self.__port: bleserial | None = bleserial(
+            ble_device,
+            self.SERVICE_UUID,
+            self.CHARACTERISTIC_UUID_READ,
+            self.CHARACTERISTIC_UUID_WRITE,
+        )
         self.__protocol = ISO_15765_4_11bit_500k()
 
     @classmethod
     async def create(
         cls,
-        device: BLEDevice,
+        ble_device: BLEDevice,
         protocol,
         timeout,
         check_voltage=True,
         start_low_power=False,
     ):
         """Initialize ELM327."""
-        self = cls(device, timeout)
+        self = cls(ble_device, timeout)
 
         logger.info(
             "Initializing ELM327: PROTOCOL=%s",
@@ -97,10 +100,20 @@ class ELM327:
 
         # ------------- open port -------------
         try:
-            await self.__port.open()
-        except Exception:
+            if not self.__port:
+                logger.error("error: attempting to open a null port!")
+            else:
+                logger.debug("looks like the __port is all good: %s", self.__port)
+
+            logger.debug("attempt to open the port: %s", self.__port)
+
+            if self.__port is not None:
+                await self.__port.open()
+
+        except Exception as e:
             logger.warning(
-                "An error occurred: %s", ("auto" if protocol is None else protocol,)
+                "An error occurred: %s %s",
+                ("auto" if protocol is None else protocol, e),
             )
             return self
 
@@ -271,7 +284,7 @@ class ELM327:
             self.__port = None
 
     #  -> list[Message]:
-    async def send_and_parse(self, cmd) -> list[Message]:
+    async def send_and_parse(self, cmd) -> list[Message] | None:
         """Send OBDCommands.
 
         Sends the given command string, and parses the

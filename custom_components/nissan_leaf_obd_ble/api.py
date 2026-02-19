@@ -21,7 +21,7 @@ class NissanLeafObdBleApiClient:
         """Initialise."""
         self._ble_device = ble_device
 
-    async def async_get_data(self) -> dict:
+    async def async_get_data(self) -> dict | None:
         """Get data from the API."""
 
         if self._ble_device is None:
