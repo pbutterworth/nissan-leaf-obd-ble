@@ -8,7 +8,7 @@
   "iot_class": "local_polling",
   "name": "Nissan Leaf OBD BLE",
   "requirements": [],
-  "version": "0.2.1",
+  "version": "0.2.2b1",
   "bluetooth": [
     {
       "service_uuid": "0000ffe0-0000-1000-8000-00805f9b34fb"
