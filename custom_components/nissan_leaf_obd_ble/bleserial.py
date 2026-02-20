@@ -1,6 +1,7 @@
 """Module to implement a serial-like interface over BLE GATT."""
 
 import asyncio
+from contextlib import suppress
 import logging
 
 from bleak import BleakClient
@@ -37,6 +38,9 @@ class bleserial:
         self._client: BleakClient | None = None
         self._rx_buffer = bytearray()
         self._timeout = None
+        self._closing = False
+        self._close_lock = asyncio.Lock()
+        self._write_timeout = None
 
     async def _wait_for_data(self, size):
         while len(self._rx_buffer) < size:
@@ -96,9 +100,13 @@ class bleserial:
 
         logger.debug("open port, ble_device: %s", self._ble_device)
 
+        self._closing = False
         def on_disconnect(client):
-            """Handle unexpected disconnection."""
-            logger.error("BleakClient disconnected unexpectedly")
+            """Handle disconnection (expected or unexpected)."""
+            if self._closing:
+                logger.info("BleakClient disconnected (expected)")
+            else:
+                logger.error("BleakClient disconnected unexpectedly")
             self._client = None
 
         try:
@@ -120,46 +128,56 @@ class bleserial:
                 self._characteristic_uuid_read, self._notification_handler
             )
             logger.debug("Notifications started")
+
         except BleakNotFoundError as e:
             logger.error("Device not found - it may have moved out of range: %s", e)
+            self._closing = False
             raise
 
         except BleakOutOfConnectionSlotsError:
             logger.error(
                 "No connection slots available - try disconnecting other devices"
             )
+            self._closing = False
             raise
 
         except BleakAbortedError:
             logger.error("Connection aborted - check for interference or move closer")
+            self._closing = False
             raise
 
         except BleakConnectionError as e:
             logger.error("Connection failed: %s", e)
+            self._closing = False
             raise
 
         except BleakError as e:
             logger.error("Failed to connect or start notifications: %s", e)
+            self._closing = False
             raise
 
     async def close(self):
-        """Close the port."""
-        if self._client:
+        """Close the port (expected disconnect)."""
+        async with self._close_lock:
+            if not self._client:
+                return
+
+            self._closing = True
+            client = self._client
+
             try:
                 logger.debug(
                     "Stopping notifications on characteristic UUID: %s",
                     self._characteristic_uuid_read,
                 )
-                await self._client.stop_notify(self._characteristic_uuid_read)
-                logger.debug("Notifications stopped")
+                with suppress(BleakError):
+                    await client.stop_notify(self._characteristic_uuid_read)
                 logger.debug("Disconnecting from device")
-                await self._client.disconnect()
-                self._client = None
-
+                await client.disconnect()
                 logger.debug("Disconnected from device")
-            except BleakError as e:
-                logger.error("Failed to stop notifications or disconnect: %s", e)
-                raise
+            finally:
+                self._client = None
+                self._closing = False
 
     async def write(self, data):
         """Write bytes."""
