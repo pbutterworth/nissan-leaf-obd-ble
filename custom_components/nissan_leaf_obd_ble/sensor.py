@@ -255,8 +255,6 @@ async def async_setup_entry(
     ]
     async_add_entities(entities)
 
-    # async_add_devices([NissanLeafObdBleSensor(coordinator, entry)])
-
 
 class NissanLeafObdBleSensor(NissanLeafObdBleEntity, SensorEntity):
     """Config entry for nissan_leaf_obd_ble sensors."""
@@ -271,11 +269,11 @@ class NissanLeafObdBleSensor(NissanLeafObdBleEntity, SensorEntity):
         super().__init__(coordinator, config_entry)
         self._sensor = sensor
         self._attr_name = f"{NAME} {SENSOR_TYPES[sensor].name}"
-        # self.entity_description = CHLORINATOR_SENSOR_TYPES[sensor]
         self._attr_device_class = SENSOR_TYPES[sensor].device_class
         self._attr_native_unit_of_measurement = SENSOR_TYPES[
             sensor
         ].native_unit_of_measurement
+        self._attr_state_class = SENSOR_TYPES[sensor].state_class
 
     @property
     def native_value(self):
