@@ -51,7 +51,6 @@ class NissanLeafObdBleDataUpdateCoordinator(DataUpdateCoordinator):
         self._address = address
         self.api = api
         self._cache_data: dict[str, Any] = {}
-        self.cache_data = {}
         self.options = options
 
     async def _async_update_data(self) -> dict[str, Any]:
@@ -91,8 +90,8 @@ class NissanLeafObdBleDataUpdateCoordinator(DataUpdateCoordinator):
             raise UpdateFailed(f"Unable to fetch data: {err}") from err
         else:
             if self.options.get("cache_values", False):
-                self.cache_data.update(new_data)
-                return self.cache_data
+                self._cache_data.update(new_data)
+                return self._cache_data
             return new_data
 
     @property
