@@ -73,6 +73,8 @@ class NissanLeafObdBleDataUpdateCoordinator(DataUpdateCoordinator):
 
         try:
             new_data = await self.api.async_get_data()
+            if new_data is None:
+                raise UpdateFailed("Failed to connect to OBD device")
             if len(new_data) == 0:
                 # Car is probably off. Switch to slow polling inteval
                 self.update_interval = timedelta(seconds=self._slow_poll_interval)

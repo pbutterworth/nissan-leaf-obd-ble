@@ -6,7 +6,7 @@ from homeassistant.const import Platform
 NAME = "Nissan Leaf OBD BLE"
 DOMAIN = "nissan_leaf_obd_ble"
 DOMAIN_DATA = f"{DOMAIN}_data"
-VERSION = "0.1.0"
+VERSION = "1.0.0"
 
 ATTRIBUTION = "Data provided by http://jsonplaceholder.typicode.com/"
 ISSUE_URL = "https://github.com/pbutterworth/nissan-leaf-obd-ble/issues"
