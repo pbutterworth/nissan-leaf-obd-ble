@@ -15,7 +15,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers.typing import ConfigType
 
-from .api import NissanLeafObdBleApiClient
+from py_nissan_leaf_obd_ble import NissanLeafObdBleApiClient
 from .const import DOMAIN, PLATFORMS, STARTUP_MESSAGE
 from .coordinator import NissanLeafObdBleDataUpdateCoordinator
 

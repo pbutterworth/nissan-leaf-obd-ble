@@ -8,7 +8,7 @@ from homeassistant.components.bluetooth.api import async_address_present
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .api import NissanLeafObdBleApiClient
+from py_nissan_leaf_obd_ble import NissanLeafObdBleApiClient
 from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)

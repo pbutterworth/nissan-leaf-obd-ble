@@ -7,7 +7,7 @@
   "domain": "nissan_leaf_obd_ble",
   "iot_class": "local_polling",
   "name": "Nissan Leaf OBD BLE",
-  "requirements": [],
+  "requirements": ["py-nissan-leaf-obd-ble"],
   "version": "0.2.2b2",
   "bluetooth": [
     {
