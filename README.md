@@ -84,6 +84,34 @@ The integration is configured via the UI (Config Flow). You will be prompted for
 - **BLE device address** — the MAC address of your LeLink2 / ELM327 adapter (e.g. `AA:BB:CC:DD:EE:FF`). You can find this in **Settings → Devices & Services → Bluetooth** after bringing the LeLink2 dongle within range.
 - **Scan interval** — how often (in seconds) to attempt a BLE connection and poll data when the device is detected.
 
+After setup, open the device and click **Configure** to adjust **polling intervals** (fast / slow / extra-slow), **cache behaviour** (keep sensor values when out of range), and **BLE UUIDs** (service, read characteristic, write characteristic). Use the UUID options if your dongle uses different GATT UUIDs than the default LeLink ones; see [Other dongles and automatic discovery](#other-dongles-and-automatic-discovery) below.
+
+---
+
+## Other dongles and automatic discovery
+
+**Automatic Bluetooth discovery** (when a device appears in HA’s “Discovered” list and this integration is suggested) is driven by the integration’s **manifest**. Home Assistant only offers this integration for BLE devices that **advertise** a service UUID listed in `manifest.json` under the `bluetooth` array. By default, only the LeLink service UUID (`0000ffe0-0000-1000-8000-00805f9b34fb`) is listed.
+
+**Using a dongle with different GATT UUIDs**
+
+- You can still add the integration manually: **Settings → Devices & Services → Add Integration** → **Nissan Leaf OBD BLE**, then pick your device from the list (devices are filtered by local name “OBDBLE”). After adding, open the device, click **Configure**, and set the three BLE UUIDs (service, read characteristic, write characteristic) to match your dongle so the connection works.
+
+**Making automatic discovery work for another dongle**
+
+- If your dongle advertises a **different** service UUID and you want it to show up in “Discovered” for this integration, you can **manually edit** the integration’s `manifest.json` after installation:
+  1. Open `config/custom_components/nissan_leaf_obd_ble/manifest.json` on your Home Assistant host.
+  2. Add another object to the `bluetooth` array with your dongle’s advertised `service_uuid`. Example:
+
+     ```json
+     "bluetooth": [
+       { "service_uuid": "0000ffe0-0000-1000-8000-00805f9b34fb" },
+       { "service_uuid": "YOUR_OTHER_DONGLE_SERVICE_UUID" }
+     ]
+     ```
+
+  3. Restart Home Assistant so discovery picks up the change.
+- **Note:** HACS or a manual update of the integration may overwrite `manifest.json`; you may need to re-apply this edit after updating unless multiple UUIDs are added to the integration in a future release.
+
 ---
 
 ## Entities
