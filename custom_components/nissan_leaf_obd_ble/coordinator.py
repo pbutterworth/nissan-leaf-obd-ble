@@ -72,7 +72,7 @@ class NissanLeafObdBleDataUpdateCoordinator(DataUpdateCoordinator):
             return {}
 
         try:
-            new_data = await self.api.async_get_data()
+            new_data = await self.api.async_get_data(self.options)
             if new_data is None:
                 raise UpdateFailed("Failed to connect to OBD device")
             if len(new_data) == 0:

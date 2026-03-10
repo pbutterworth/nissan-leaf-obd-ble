@@ -19,7 +19,15 @@ from homeassistant.const import CONF_ADDRESS
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
 
-from .const import DOMAIN
+from .const import (
+    DOMAIN,
+    CONF_SERVICE_UUID,
+    CONF_CHARACTERISTIC_UUID_READ,
+    CONF_CHARACTERISTIC_UUID_WRITE,
+    DEFAULT_SERVICE_UUID,
+    DEFAULT_CHARACTERISTIC_UUID_READ,
+    DEFAULT_CHARACTERISTIC_UUID_WRITE,
+)
 
 LOCAL_NAMES = {"OBDBLE"}
 
@@ -147,6 +155,21 @@ class NissanLeafObdBleOptionsFlowHandler(config_entries.OptionsFlow):
                     vol.Required(
                         "xs_poll", default=self.options.get("xs_poll", 3600)
                     ): int,
+                    vol.Optional(
+                        CONF_SERVICE_UUID,
+                        default=self.options.get(CONF_SERVICE_UUID)
+                        or DEFAULT_SERVICE_UUID,
+                    ): str,
+                    vol.Optional(
+                        CONF_CHARACTERISTIC_UUID_READ,
+                        default=self.options.get(CONF_CHARACTERISTIC_UUID_READ)
+                        or DEFAULT_CHARACTERISTIC_UUID_READ,
+                    ): str,
+                    vol.Optional(
+                        CONF_CHARACTERISTIC_UUID_WRITE,
+                        default=self.options.get(CONF_CHARACTERISTIC_UUID_WRITE)
+                        or DEFAULT_CHARACTERISTIC_UUID_WRITE,
+                    ): str,
                 }
             ),
         )
