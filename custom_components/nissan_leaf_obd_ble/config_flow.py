@@ -43,6 +43,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._errors = {}
         self._discovery_info: BluetoothServiceInfoBleak | None = None
         self._discovered_devices: dict[str, BluetoothServiceInfoBleak] = {}
+        self._selected_device: BluetoothServiceInfoBleak | None = None
 
     @staticmethod
     @callback
@@ -73,17 +74,12 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             address = user_input[CONF_ADDRESS]
             discovery_info = self._discovered_devices[address]
-            local_name = discovery_info.name
             await self.async_set_unique_id(
                 discovery_info.address, raise_on_progress=False
             )
             self._abort_if_unique_id_configured()
-            return self.async_create_entry(
-                title=local_name,
-                data={
-                    CONF_ADDRESS: discovery_info.address,
-                },
-            )
+            self._selected_device = discovery_info
+            return await self.async_step_configure()
 
         if discovery := self._discovery_info:
             self._discovered_devices[discovery.address] = discovery
@@ -118,6 +114,36 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="user",
             data_schema=data_schema,
             errors=errors,
+        )
+
+    async def async_step_configure(
+        self, user_input: dict | None = None
+    ) -> FlowResult:
+        """Handle UUID configuration step."""
+        if user_input is not None:
+            return self.async_create_entry(
+                title=self._selected_device.name,
+                data={CONF_ADDRESS: self._selected_device.address},
+                options=user_input,
+            )
+        return self.async_show_form(
+            step_id="configure",
+            data_schema=vol.Schema(
+                {
+                    vol.Optional(
+                        CONF_SERVICE_UUID,
+                        default=DEFAULT_SERVICE_UUID,
+                    ): str,
+                    vol.Optional(
+                        CONF_CHARACTERISTIC_UUID_READ,
+                        default=DEFAULT_CHARACTERISTIC_UUID_READ,
+                    ): str,
+                    vol.Optional(
+                        CONF_CHARACTERISTIC_UUID_WRITE,
+                        default=DEFAULT_CHARACTERISTIC_UUID_WRITE,
+                    ): str,
+                }
+            ),
         )
 
 
