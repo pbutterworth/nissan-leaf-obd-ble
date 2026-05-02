@@ -6,7 +6,7 @@ from homeassistant.const import Platform
 NAME = "Nissan Leaf OBD BLE"
 DOMAIN = "nissan_leaf_obd_ble"
 DOMAIN_DATA = f"{DOMAIN}_data"
-VERSION = "0.3.1"
+VERSION = "0.4.0b1"
 
 ATTRIBUTION = "Data provided by http://jsonplaceholder.typicode.com/"
 ISSUE_URL = "https://github.com/pbutterworth/nissan-leaf-obd-ble/issues"
@@ -29,6 +29,9 @@ DEFAULT_SERVICE_UUID = "0000ffe0-0000-1000-8000-00805f9b34fb"
 DEFAULT_CHARACTERISTIC_UUID_READ = "0000ffe1-0000-1000-8000-00805f9b34fb"
 DEFAULT_CHARACTERISTIC_UUID_WRITE = "0000ffe1-0000-1000-8000-00805f9b34fb"
 
+
+OVERRIDES_FILE = "custom_components/nissan_leaf_obd_ble/overrides.yaml"
+DECODERS_MODULE_FILE = "custom_components/nissan_leaf_obd_ble/decoders.py"
 
 STARTUP_MESSAGE = f"""
 -------------------------------------------------------------------
