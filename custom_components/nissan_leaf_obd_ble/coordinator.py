@@ -42,7 +42,14 @@ class NissanLeafObdBleDataUpdateCoordinator(DataUpdateCoordinator):
     """Class to manage fetching data from the API."""
 
     def __init__(
-        self, hass: HomeAssistant, address: str, api: NissanLeafObdBleApiClient, options
+        self,
+        hass: HomeAssistant,
+        address: str,
+        api: NissanLeafObdBleApiClient,
+        options,
+        extra_commands=None,
+        extra_sensor_descriptions=None,
+        disabled_commands=None,
     ) -> None:
         """Initialize."""
         super().__init__(
@@ -55,6 +62,9 @@ class NissanLeafObdBleDataUpdateCoordinator(DataUpdateCoordinator):
         self._address = address
         self.api = api
         self._cache_data: dict[str, Any] = {}
+        self.extra_commands = extra_commands or {}
+        self.extra_sensor_descriptions = extra_sensor_descriptions or {}
+        self.disabled_commands = disabled_commands or set()
         self.options = options
 
     async def _async_update_data(self) -> dict[str, Any]:
@@ -77,7 +87,11 @@ class NissanLeafObdBleDataUpdateCoordinator(DataUpdateCoordinator):
 
         try:
             new_data = await asyncio.wait_for(
-                self.api.async_get_data(self.options),
+                self.api.async_get_data(
+                    self.options,
+                    extra_commands=self.extra_commands or None,
+                    disabled_commands=self.disabled_commands or None,
+                ),
                 timeout=self._fetch_timeout,
             )
             if new_data is None:

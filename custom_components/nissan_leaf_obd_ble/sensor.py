@@ -250,9 +250,11 @@ async def async_setup_entry(
     """Set up sensor platform."""
     coordinator = hass.data[DOMAIN][entry.entry_id]
     entities = [
-        NissanLeafObdBleSensor(coordinator, entry, sensor_desc)
-        for sensor_desc in SENSOR_TYPES
+        NissanLeafObdBleSensor(coordinator, entry, desc)
+        for desc in SENSOR_TYPES.values()
     ]
+    for desc in coordinator.extra_sensor_descriptions.values():
+        entities.append(NissanLeafObdBleSensor(coordinator, entry, desc))
     async_add_entities(entities)
 
 
@@ -263,17 +265,16 @@ class NissanLeafObdBleSensor(NissanLeafObdBleEntity, SensorEntity):
         self,
         coordinator,
         config_entry,
-        sensor: str,
+        description: SensorEntityDescription,
     ) -> None:
         """Initialize the sensor."""
         super().__init__(coordinator, config_entry)
-        self._sensor = sensor
-        self._attr_name = f"{NAME} {SENSOR_TYPES[sensor].name}"
-        self._attr_device_class = SENSOR_TYPES[sensor].device_class
-        self._attr_native_unit_of_measurement = SENSOR_TYPES[
-            sensor
-        ].native_unit_of_measurement
-        self._attr_state_class = SENSOR_TYPES[sensor].state_class
+        self._description = description
+        self._sensor = description.key
+        self._attr_name = f"{NAME} {description.name}"
+        self._attr_device_class = description.device_class
+        self._attr_native_unit_of_measurement = description.native_unit_of_measurement
+        self._attr_state_class = description.state_class
 
     @property
     def native_value(self):
@@ -283,4 +284,4 @@ class NissanLeafObdBleSensor(NissanLeafObdBleEntity, SensorEntity):
     @property
     def icon(self):
         """Return the icon of the sensor."""
-        return SENSOR_TYPES[self._sensor].icon
+        return self._description.icon

@@ -18,6 +18,7 @@ from homeassistant.helpers.typing import ConfigType
 from py_nissan_leaf_obd_ble import NissanLeafObdBleApiClient
 from .const import DOMAIN, PLATFORMS, STARTUP_MESSAGE
 from .coordinator import NissanLeafObdBleDataUpdateCoordinator
+from .overrides import load_overrides
 
 _LOGGER: logging.Logger = logging.getLogger(__package__)
 
@@ -43,8 +44,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         )
 
     api = NissanLeafObdBleApiClient(ble_device)
+
+    extra_commands, extra_sensor_descriptions, disabled_commands = (
+        await hass.async_add_executor_job(load_overrides, hass, address)
+    )
+
     coordinator = NissanLeafObdBleDataUpdateCoordinator(
-        hass, address=address, api=api, options=entry.options or {}
+        hass,
+        address=address,
+        api=api,
+        options=entry.options or {},
+        extra_commands=extra_commands,
+        extra_sensor_descriptions=extra_sensor_descriptions,
+        disabled_commands=disabled_commands,
     )
 
     hass.data[DOMAIN][entry.entry_id] = coordinator

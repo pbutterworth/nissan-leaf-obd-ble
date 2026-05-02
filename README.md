@@ -143,6 +143,105 @@ Nissan Leaf CAN bus
 
 ---
 
+## Overriding OBD Commands and Decoders
+
+Different Nissan Leaf generations and trim levels use different OBD PIDs and message formats. Rather than waiting for a new package release, you can override any command directly in your Home Assistant config directory.
+
+### Quick start
+
+Create the file `config/custom_components/nissan_leaf_obd_ble/overrides.yaml`. Restart Home Assistant (or reload the integration) for changes to take effect.
+
+### overrides.yaml format
+
+Top-level keys are BLE device MAC addresses (upper-case). Use `_all_` to apply overrides to every Nissan Leaf config entry in your HA install.
+
+```yaml
+# config/custom_components/nissan_leaf_obd_ble/overrides.yaml
+
+_all_:                          # applies to every Leaf instance
+  commands:
+    ambient_temp:
+      command: "0322115e"       # replace the PID; keeps the built-in decoder
+
+DC:0D:30:AA:BB:CC:              # applies only to this BLE address
+  commands:
+
+    # Change the scale factor for the 12V battery voltage reading
+    bat_12v_voltage:
+      decoder:
+        type: linear_scale
+        byte_offset: 3
+        scale: 0.1
+
+    # Add a completely new sensor not in the default set
+    hv_charger_temp:
+      command: "03221299"
+      header: "797"
+      bytes: 4
+      decoder:
+        type: linear_scale
+        byte_offset: 3
+        scale: 0.5
+        offset: -40.0
+      sensor:                   # HA entity metadata (required for new commands)
+        name: "HV Charger Temperature"
+        unit: "°C"
+        device_class: temperature
+        state_class: measurement
+        icon: "mdi:thermometer"
+        precision: 1
+
+    # Skip a command entirely (e.g. one that causes issues on your model)
+    unknown:
+      enabled: false
+```
+
+Any field you omit inherits from the built-in definition. You only need to specify what changes.
+
+### Supported decoder types
+
+| Type | Required fields | Optional fields | Description |
+|---|---|---|---|
+| `linear_scale` | `byte_offset` | `scale` (default 1.0), `offset` (default 0.0) | `value = data[byte_offset] * scale + offset` |
+| `multi_byte_int` | `byte_start`, `byte_end` | `signed` (false), `byte_order` (big), `scale`, `offset` | `int.from_bytes(data[start:end])` then scale |
+| `struct_unpack` | `format`, `byte_start`, `byte_end` | `scale`, `offset` | `struct.unpack(fmt, data[start:end])[0]` then scale |
+| `lookup` | `byte_offset`, `values` | `default` | Map byte value → string via a dict |
+| `bit_flag` | `byte_offset`, `bit_mask` | — | `(data[byte_offset] & bit_mask) == bit_mask` → bool |
+| `equality` | `byte_offset`, `value` | — | `data[byte_offset] == value` → bool |
+| `multi_field` | `fields` (list of sub-specs) | — | Runs each field's sub-spec; returns a merged dict |
+| `python` | `function` | — | Calls a named function from `decoders.py` (see below) |
+
+### Python escape hatch
+
+For decoders too complex for YAML templates (e.g. multi-step bit manipulation across many bytes), you can write a Python function instead.
+
+Create `config/custom_components/nissan_leaf_obd_ble/decoders.py` alongside `overrides.yaml`:
+
+```python
+# config/custom_components/nissan_leaf_obd_ble/decoders.py
+
+def my_lbc_decoder(messages):
+    d = messages[0].data
+    soc = int.from_bytes(d[33:36], 'big') * 0.0001
+    health = int.from_bytes(d[30:32], 'big') / 102.4
+    return {"state_of_charge": soc, "hv_battery_health": health}
+```
+
+Then reference the function in `overrides.yaml`:
+
+```yaml
+DC:0D:30:AA:BB:CC:
+  commands:
+    lbc:
+      decoder:
+        type: python
+        function: my_lbc_decoder
+```
+
+The module is loaded once when the integration starts. Any errors during loading or in function lookups are reported in the HA log.
+
+---
+
 ## Troubleshooting
 
 **The integration can't find my LeLink2 adapter**
