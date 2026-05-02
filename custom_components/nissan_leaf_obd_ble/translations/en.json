@@ -1,4 +1,22 @@
 {
+  "config": {
+    "step": {
+      "configure": {
+        "title": "Configure BLE UUIDs",
+        "description": "Leave defaults unless your OBD dongle uses non-standard GATT UUIDs.",
+        "data": {
+          "service_uuid": "BLE service UUID",
+          "characteristic_uuid_read": "BLE read characteristic UUID",
+          "characteristic_uuid_write": "BLE write characteristic UUID"
+        },
+        "data_description": {
+          "service_uuid": "GATT service UUID used to connect to the OBD BLE dongle.",
+          "characteristic_uuid_read": "GATT characteristic UUID for receiving data from the dongle.",
+          "characteristic_uuid_write": "GATT characteristic UUID for sending commands to the dongle."
+        }
+      }
+    }
+  },
   "options": {
     "step": {
       "init": {
