@@ -1,15 +1,18 @@
 """Sensor platform for Nissan Leaf OBD BLE."""
 
+from __future__ import annotations
+
 from homeassistant.components.sensor import (
     SensorDeviceClass,
     SensorEntity,
     SensorEntityDescription,
     SensorStateClass,
 )
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.typing import StateType
 
-from .const import DOMAIN, NAME
+from .coordinator import NissanLeafObdBleConfigEntry
 from .entity import NissanLeafObdBleEntity
 
 SENSOR_TYPES: dict[str, SensorEntityDescription] = {
@@ -136,7 +139,6 @@ SENSOR_TYPES: dict[str, SensorEntityDescription] = {
     ),
     "odometer": SensorEntityDescription(
         key="odometer",
-        # icon="mdi:speedometer",
         name="Odometer",
         native_unit_of_measurement="km",
         suggested_display_precision=0,
@@ -145,7 +147,6 @@ SENSOR_TYPES: dict[str, SensorEntityDescription] = {
     ),
     "tp_fr": SensorEntityDescription(
         key="tp_fr",
-        # icon="mdi:speedometer",
         name="Tyre pressure front right",
         native_unit_of_measurement="kPa",
         suggested_display_precision=0,
@@ -154,7 +155,6 @@ SENSOR_TYPES: dict[str, SensorEntityDescription] = {
     ),
     "tp_fl": SensorEntityDescription(
         key="tp_fl",
-        # icon="mdi:speedometer",
         name="Tyre pressure front left",
         native_unit_of_measurement="kPa",
         suggested_display_precision=0,
@@ -163,7 +163,6 @@ SENSOR_TYPES: dict[str, SensorEntityDescription] = {
     ),
     "tp_rr": SensorEntityDescription(
         key="tp_rr",
-        # icon="mdi:speedometer",
         name="Tyre pressure rear right",
         native_unit_of_measurement="kPa",
         suggested_display_precision=0,
@@ -172,7 +171,6 @@ SENSOR_TYPES: dict[str, SensorEntityDescription] = {
     ),
     "tp_rl": SensorEntityDescription(
         key="tp_rl",
-        # icon="mdi:speedometer",
         name="Tyre pressure rear left",
         native_unit_of_measurement="kPa",
         suggested_display_precision=0,
@@ -181,7 +179,6 @@ SENSOR_TYPES: dict[str, SensorEntityDescription] = {
     ),
     "range_remaining": SensorEntityDescription(
         key="range_remaining",
-        # icon="mdi:speedometer",
         name="Range remaining",
         native_unit_of_measurement="km",
         suggested_display_precision=0,
@@ -203,12 +200,10 @@ SENSOR_TYPES: dict[str, SensorEntityDescription] = {
         name="HV battery health",
         native_unit_of_measurement="%",
         suggested_display_precision=1,
-        # device_class=SensorDeviceClass.BATTERY,
         state_class=SensorStateClass.MEASUREMENT,
     ),
     "hv_battery_Ah": SensorEntityDescription(
         key="hv_battery_Ah",
-        # icon="mdi:ev-station",
         name="HV battery capacity",
         native_unit_of_measurement="Ah",
         suggested_display_precision=1,
@@ -216,7 +211,6 @@ SENSOR_TYPES: dict[str, SensorEntityDescription] = {
     ),
     "hv_battery_current_1": SensorEntityDescription(
         key="hv_battery_current_1",
-        # icon="mdi:ev-station",
         name="HV battery current 1",
         native_unit_of_measurement="A",
         suggested_display_precision=1,
@@ -225,7 +219,6 @@ SENSOR_TYPES: dict[str, SensorEntityDescription] = {
     ),
     "hv_battery_current_2": SensorEntityDescription(
         key="hv_battery_current_2",
-        # icon="mdi:ev-station",
         name="HV battery current 2",
         native_unit_of_measurement="A",
         suggested_display_precision=1,
@@ -234,7 +227,6 @@ SENSOR_TYPES: dict[str, SensorEntityDescription] = {
     ),
     "hv_battery_voltage": SensorEntityDescription(
         key="hv_battery_voltage",
-        # icon="mdi:ev-station",
         name="HV battery voltage",
         native_unit_of_measurement="V",
         suggested_display_precision=1,
@@ -245,43 +237,24 @@ SENSOR_TYPES: dict[str, SensorEntityDescription] = {
 
 
 async def async_setup_entry(
-    hass: HomeAssistant, entry: ConfigEntry, async_add_entities
-):
+    hass: HomeAssistant,
+    entry: NissanLeafObdBleConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
     """Set up sensor platform."""
-    coordinator = hass.data[DOMAIN][entry.entry_id]
-    entities = [
-        NissanLeafObdBleSensor(coordinator, entry, desc)
-        for desc in SENSOR_TYPES.values()
-    ]
-    for desc in coordinator.extra_sensor_descriptions.values():
-        entities.append(NissanLeafObdBleSensor(coordinator, entry, desc))
-    async_add_entities(entities)
+    coordinator = entry.runtime_data
+    # User-defined sensors from overrides.yaml replace built-in ones with the same key.
+    descriptions = {**SENSOR_TYPES, **coordinator.extra_sensor_descriptions}
+    async_add_entities(
+        NissanLeafObdBleSensor(coordinator, description)
+        for description in descriptions.values()
+    )
 
 
 class NissanLeafObdBleSensor(NissanLeafObdBleEntity, SensorEntity):
-    """Config entry for nissan_leaf_obd_ble sensors."""
-
-    def __init__(
-        self,
-        coordinator,
-        config_entry,
-        description: SensorEntityDescription,
-    ) -> None:
-        """Initialize the sensor."""
-        super().__init__(coordinator, config_entry)
-        self._description = description
-        self._sensor = description.key
-        self._attr_name = f"{NAME} {description.name}"
-        self._attr_device_class = description.device_class
-        self._attr_native_unit_of_measurement = description.native_unit_of_measurement
-        self._attr_state_class = description.state_class
+    """nissan_leaf_obd_ble sensor class."""
 
     @property
-    def native_value(self):
+    def native_value(self) -> StateType:
         """Return the state of the sensor."""
-        return self.coordinator.data.get(self._sensor)
-
-    @property
-    def icon(self):
-        """Return the icon of the sensor."""
-        return self._description.icon
+        return self.coordinator.data.get(self.entity_description.key)

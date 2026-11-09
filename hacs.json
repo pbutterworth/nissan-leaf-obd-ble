@@ -1,5 +1,5 @@
 {
   "name": "Nissan Leaf OBD BLE",
   "render_readme": true,
-  "iot_class": "local_polling"
+  "homeassistant": "2025.1.0"
 }

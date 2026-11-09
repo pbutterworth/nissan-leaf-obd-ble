@@ -79,10 +79,10 @@ When your Leaf pulls into the garage, this integration automatically connects ov
 
 ## Configuration
 
-The integration is configured via the UI (Config Flow). You will be prompted for:
+The integration is configured via the UI (Config Flow):
 
-- **BLE device address** — the MAC address of your LeLink2 / ELM327 adapter (e.g. `AA:BB:CC:DD:EE:FF`). You can find this in **Settings → Devices & Services → Bluetooth** after bringing the LeLink2 dongle within range.
-- **Scan interval** — how often (in seconds) to attempt a BLE connection and poll data when the device is detected.
+1. **Pick the dongle** — either accept the device Home Assistant discovered, or go to **Settings → Devices & Services → Add Integration → Nissan Leaf OBD BLE** and choose it from the list. The dongle must be powered and within Bluetooth range, and not connected to another app (e.g. LeafSpy).
+2. **Confirm the BLE UUIDs** — leave the defaults for a LeLink2; change them only if your dongle uses different GATT UUIDs.
 
 After setup, open the device and click **Configure** to adjust **polling intervals** (fast / slow / extra-slow), **cache behaviour** (keep sensor values when out of range), and **BLE UUIDs** (service, read characteristic, write characteristic). Use the UUID options if your dongle uses different GATT UUIDs than the default LeLink ones; see [Other dongles and automatic discovery](#other-dongles-and-automatic-discovery) below.
 
@@ -94,7 +94,7 @@ After setup, open the device and click **Configure** to adjust **polling interva
 
 **Using a dongle with different GATT UUIDs**
 
-- You can still add the integration manually: **Settings → Devices & Services → Add Integration** → **Nissan Leaf OBD BLE**, then pick your device from the list (devices are filtered by local name “OBDBLE”). After adding, open the device, click **Configure**, and set the three BLE UUIDs (service, read characteristic, write characteristic) to match your dongle so the connection works.
+- You can still add the integration manually: **Settings → Devices & Services → Add Integration** → **Nissan Leaf OBD BLE**, then pick your device from the list (the list shows devices whose local name starts with “OBDBLE” or that advertise the default service UUID; if none match, every connectable Bluetooth device Home Assistant can see is listed). The setup dialog then asks for the three BLE UUIDs (service, read characteristic, write characteristic); set them to match your dongle. They can be changed later via **Configure**.
 
 **Making automatic discovery work for another dongle**
 

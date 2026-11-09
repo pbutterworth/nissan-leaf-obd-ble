@@ -1,9 +1,17 @@
 {
   "config": {
+    "flow_title": "{name}",
     "step": {
+      "user": {
+        "title": "Select OBD dongle",
+        "description": "Choose the Bluetooth OBD dongle plugged into your Nissan Leaf.",
+        "data": {
+          "address": "Device"
+        }
+      },
       "configure": {
-        "title": "Configure BLE UUIDs",
-        "description": "Leave defaults unless your OBD dongle uses non-standard GATT UUIDs.",
+        "title": "Set up {name}",
+        "description": "Add the OBD dongle {name} ({address})?\n\nLeave the defaults unless your dongle uses non-standard GATT UUIDs.",
         "data": {
           "service_uuid": "BLE service UUID",
           "characteristic_uuid_read": "BLE read characteristic UUID",
@@ -15,6 +23,14 @@
           "characteristic_uuid_write": "GATT characteristic UUID for sending commands to the dongle."
         }
       }
+    },
+    "error": {
+      "invalid_uuid": "Not a valid UUID. Use the full form (0000ffe0-0000-1000-8000-00805f9b34fb) or the 16-bit short form (ffe0)."
+    },
+    "abort": {
+      "already_configured": "Device is already configured",
+      "already_in_progress": "Configuration flow is already in progress",
+      "no_devices_found": "Home Assistant cannot see any connectable Bluetooth devices that are not already configured. Check that Home Assistant has a working Bluetooth adapter or an active (connectable) Bluetooth proxy near the car, that the dongle is powered, and that no phone app (e.g. LeafSpy) is connected to it."
     }
   },
   "options": {
@@ -36,11 +52,14 @@
           "fast_poll": "Polling rate to use when actively getting data from the car.",
           "slow_poll": "Polling rate to use when the car is in range, but turned off.",
           "xs_poll": "Polling rate to use when the car is out of range. Home Assistant will listen for bluetooth advertisements and update immediately if the car comes back into range.",
-          "service_uuid": "GATT service UUID used to connect to the OBD BLE dongle.",
-          "characteristic_uuid_read": "GATT characteristic UUID for receiving data from the dongle.",
-          "characteristic_uuid_write": "GATT characteristic UUID for sending commands to the dongle."
+          "service_uuid": "GATT service UUID used to connect to the OBD BLE dongle. Change only if your dongle uses different UUIDs.",
+          "characteristic_uuid_read": "GATT characteristic UUID for notifications/read. Change only if your dongle uses different UUIDs.",
+          "characteristic_uuid_write": "GATT characteristic UUID for sending commands. Change only if your dongle uses different UUIDs."
         }
       }
+    },
+    "error": {
+      "invalid_uuid": "Not a valid UUID. Use the full form (0000ffe0-0000-1000-8000-00805f9b34fb) or the 16-bit short form (ffe0)."
     }
   }
 }
