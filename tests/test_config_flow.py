@@ -145,3 +145,16 @@ async def test_options_flow(hass: HomeAssistant) -> None:
     )
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert entry.options == {"fetch_timeout": 30, **user_input}
+
+
+async def test_user_flow_falls_back_to_all_devices(hass: HomeAssistant) -> None:
+    """A dongle with an unknown name and UUID can still be picked."""
+    devices = [make_service_info("IOS-Vlink", "11:22:33:44:55:66", service_uuids=[])]
+    with patch(DISCOVERED, return_value=devices):
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN, context={"source": SOURCE_USER}
+        )
+    assert result["type"] is FlowResultType.FORM
+    assert list(result["data_schema"].schema[CONF_ADDRESS].container) == [
+        "11:22:33:44:55:66"
+    ]

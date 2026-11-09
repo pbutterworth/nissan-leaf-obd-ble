@@ -111,14 +111,17 @@ class NissanLeafObdBleConfigFlow(ConfigFlow, domain=DOMAIN):
             return await self.async_step_configure()
 
         current_addresses = self._async_current_ids(include_ignore=False)
-        for service_info in async_discovered_service_info(self.hass):
-            if (
-                service_info.address in current_addresses
-                or service_info.address in self._discovered_devices
-                or not _is_supported_device(service_info)
-            ):
-                continue
-            self._discovered_devices[service_info.address] = service_info
+        candidates = [
+            service_info
+            for service_info in async_discovered_service_info(self.hass)
+            if service_info.address not in current_addresses
+        ]
+        # Prefer devices that look like a supported dongle. If none do, offer
+        # every connectable device so dongles with another name/UUID can be added.
+        supported = [info for info in candidates if _is_supported_device(info)]
+        self._discovered_devices = {
+            info.address: info for info in supported or candidates
+        }
 
         if not self._discovered_devices:
             return self.async_abort(reason="no_devices_found")

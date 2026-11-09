@@ -94,7 +94,7 @@ After setup, open the device and click **Configure** to adjust **polling interva
 
 **Using a dongle with different GATT UUIDs**
 
-- You can still add the integration manually: **Settings → Devices & Services → Add Integration** → **Nissan Leaf OBD BLE**, then pick your device from the list (the list shows devices whose local name starts with “OBDBLE” or that advertise the default service UUID). The setup dialog then asks for the three BLE UUIDs (service, read characteristic, write characteristic); set them to match your dongle. They can be changed later via **Configure**.
+- You can still add the integration manually: **Settings → Devices & Services → Add Integration** → **Nissan Leaf OBD BLE**, then pick your device from the list (the list shows devices whose local name starts with “OBDBLE” or that advertise the default service UUID; if none match, every connectable Bluetooth device Home Assistant can see is listed). The setup dialog then asks for the three BLE UUIDs (service, read characteristic, write characteristic); set them to match your dongle. They can be changed later via **Configure**.
 
 **Making automatic discovery work for another dongle**
 
