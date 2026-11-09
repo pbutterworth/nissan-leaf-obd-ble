@@ -1,207 +1,212 @@
-"""Adds config flow for Nissan Leaf OBD BLE."""
+"""Config flow for Nissan Leaf OBD BLE."""
+
+from __future__ import annotations
 
 from typing import Any
+from uuid import UUID
 
-try:
-    from bluetooth_data_tools import human_readable_name
-except ImportError:  # pragma: no cover - fallback for missing dependency
-    def human_readable_name(_manufacturer: str | None, name: str | None, address: str):
-        """Fallback if bluetooth_data_tools is unavailable."""
-        return name or address
+from bleak.uuids import normalize_uuid_str
 import voluptuous as vol
 
-from homeassistant import config_entries
 from homeassistant.components.bluetooth import (
     BluetoothServiceInfoBleak,
     async_discovered_service_info,
 )
+from homeassistant.config_entries import (
+    ConfigEntry,
+    ConfigFlow,
+    ConfigFlowResult,
+    OptionsFlow,
+)
 from homeassistant.const import CONF_ADDRESS
 from homeassistant.core import callback
-from homeassistant.data_entry_flow import FlowResult
 
 from .const import (
-    DOMAIN,
-    CONF_SERVICE_UUID,
+    CONF_CACHE_VALUES,
     CONF_CHARACTERISTIC_UUID_READ,
     CONF_CHARACTERISTIC_UUID_WRITE,
-    DEFAULT_SERVICE_UUID,
+    CONF_FAST_POLL,
+    CONF_SERVICE_UUID,
+    CONF_SLOW_POLL,
+    CONF_XS_POLL,
+    DEFAULT_CACHE_VALUES,
     DEFAULT_CHARACTERISTIC_UUID_READ,
     DEFAULT_CHARACTERISTIC_UUID_WRITE,
+    DEFAULT_FAST_POLL,
+    DEFAULT_SERVICE_UUID,
+    DEFAULT_SLOW_POLL,
+    DEFAULT_XS_POLL,
+    DOMAIN,
 )
 
-LOCAL_NAMES = {"OBDBLE"}
+LOCAL_NAMES = ("OBDBLE",)
+
+UUID_DEFAULTS: dict[str, str] = {
+    CONF_SERVICE_UUID: DEFAULT_SERVICE_UUID,
+    CONF_CHARACTERISTIC_UUID_READ: DEFAULT_CHARACTERISTIC_UUID_READ,
+    CONF_CHARACTERISTIC_UUID_WRITE: DEFAULT_CHARACTERISTIC_UUID_WRITE,
+}
+
+UUID_SCHEMA = {vol.Required(key): str for key in UUID_DEFAULTS}
+
+_POLL_INTERVAL = vol.All(vol.Coerce(int), vol.Range(min=1))
 
 
-class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
+def _validate_uuids(user_input: dict[str, Any]) -> dict[str, str]:
+    """Normalise the UUID fields in place and return any form errors."""
+    errors: dict[str, str] = {}
+    for key in UUID_DEFAULTS:
+        try:
+            user_input[key] = str(UUID(normalize_uuid_str(user_input[key].strip())))
+        except (ValueError, AttributeError):
+            errors[key] = "invalid_uuid"
+    return errors
+
+
+def _is_supported_device(service_info: BluetoothServiceInfoBleak) -> bool:
+    """Return true if the advertisement looks like a supported OBD dongle."""
+    return (
+        service_info.name.startswith(LOCAL_NAMES)
+        or DEFAULT_SERVICE_UUID in service_info.service_uuids
+    )
+
+
+class NissanLeafObdBleConfigFlow(ConfigFlow, domain=DOMAIN):
     """Config flow handler."""
 
     VERSION = 1
-    CONNECTION_CLASS = config_entries.CONN_CLASS_LOCAL_POLL
 
     def __init__(self) -> None:
         """Initialize."""
-        self._errors = {}
-        self._discovery_info: BluetoothServiceInfoBleak | None = None
         self._discovered_devices: dict[str, BluetoothServiceInfoBleak] = {}
         self._selected_device: BluetoothServiceInfoBleak | None = None
 
     @staticmethod
     @callback
-    def async_get_options_flow(
-        config_entry: config_entries.ConfigEntry,
-    ) -> config_entries.OptionsFlow:
+    def async_get_options_flow(config_entry: ConfigEntry) -> OptionsFlow:
         """Return the options flow."""
         return NissanLeafObdBleOptionsFlowHandler()
 
     async def async_step_bluetooth(
         self, discovery_info: BluetoothServiceInfoBleak
-    ) -> FlowResult:
-        """Handle the bluetooth discovery step."""
+    ) -> ConfigFlowResult:
+        """Handle a device found by bluetooth discovery."""
         await self.async_set_unique_id(discovery_info.address)
         self._abort_if_unique_id_configured()
-        self._discovery_info = discovery_info
+        self._selected_device = discovery_info
         self.context["title_placeholders"] = {
-            "name": human_readable_name(
-                None, discovery_info.name, discovery_info.address
-            )
+            "name": f"{discovery_info.name} ({discovery_info.address})"
         }
-        return await self.async_step_user()
+        return await self.async_step_configure()
 
-    async def async_step_user(self, user_input: dict | None = None) -> FlowResult:
-        """Handle the user step to pick discovered device."""
-        errors: dict[str, str] = {}
-
+    async def async_step_user(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Let the user pick one of the discovered devices."""
         if user_input is not None:
             address = user_input[CONF_ADDRESS]
-            discovery_info = self._discovered_devices[address]
-            await self.async_set_unique_id(
-                discovery_info.address, raise_on_progress=False
-            )
+            await self.async_set_unique_id(address, raise_on_progress=False)
             self._abort_if_unique_id_configured()
-            self._selected_device = discovery_info
+            self._selected_device = self._discovered_devices[address]
             return await self.async_step_configure()
 
-        if discovery := self._discovery_info:
-            self._discovered_devices[discovery.address] = discovery
-        else:
-            current_addresses = self._async_current_ids()
-            for discovery in async_discovered_service_info(self.hass):
-                if (
-                    discovery.address in current_addresses
-                    or discovery.address in self._discovered_devices
-                    or not any(
-                        discovery.name.startswith(local_name)
-                        for local_name in LOCAL_NAMES
-                    )
-                ):
-                    continue
-                self._discovered_devices[discovery.address] = discovery
+        current_addresses = self._async_current_ids(include_ignore=False)
+        for service_info in async_discovered_service_info(self.hass):
+            if (
+                service_info.address in current_addresses
+                or service_info.address in self._discovered_devices
+                or not _is_supported_device(service_info)
+            ):
+                continue
+            self._discovered_devices[service_info.address] = service_info
 
         if not self._discovered_devices:
-            return self.async_abort(reason="no_unconfigured_devices")
+            return self.async_abort(reason="no_devices_found")
 
-        data_schema = vol.Schema(
-            {
-                vol.Required(CONF_ADDRESS): vol.In(
-                    {
-                        service_info.address: f"{service_info.name} ({service_info.address})"
-                        for service_info in self._discovered_devices.values()
-                    }
-                ),
-            }
-        )
         return self.async_show_form(
             step_id="user",
-            data_schema=data_schema,
-            errors=errors,
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_ADDRESS): vol.In(
+                        {
+                            address: f"{service_info.name} ({address})"
+                            for address, service_info in self._discovered_devices.items()
+                        }
+                    ),
+                }
+            ),
         )
 
     async def async_step_configure(
-        self, user_input: dict | None = None
-    ) -> FlowResult:
-        """Handle UUID configuration step."""
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Confirm the device and configure its GATT UUIDs."""
+        assert self._selected_device is not None
+        device = self._selected_device
+        errors: dict[str, str] = {}
+
         if user_input is not None:
-            return self.async_create_entry(
-                title=self._selected_device.name,
-                data={CONF_ADDRESS: self._selected_device.address},
-                options=user_input,
-            )
+            errors = _validate_uuids(user_input)
+            if not errors:
+                return self.async_create_entry(
+                    title=device.name or device.address,
+                    data={CONF_ADDRESS: device.address},
+                    options=user_input,
+                )
+
         return self.async_show_form(
             step_id="configure",
-            data_schema=vol.Schema(
-                {
-                    vol.Optional(
-                        CONF_SERVICE_UUID,
-                        default=DEFAULT_SERVICE_UUID,
-                    ): str,
-                    vol.Optional(
-                        CONF_CHARACTERISTIC_UUID_READ,
-                        default=DEFAULT_CHARACTERISTIC_UUID_READ,
-                    ): str,
-                    vol.Optional(
-                        CONF_CHARACTERISTIC_UUID_WRITE,
-                        default=DEFAULT_CHARACTERISTIC_UUID_WRITE,
-                    ): str,
-                }
+            data_schema=self.add_suggested_values_to_schema(
+                vol.Schema(UUID_SCHEMA), user_input or UUID_DEFAULTS
             ),
+            description_placeholders={
+                "name": device.name or device.address,
+                "address": device.address,
+            },
+            errors=errors,
         )
 
 
-class NissanLeafObdBleOptionsFlowHandler(config_entries.OptionsFlow):
-    """Config flow options handler for nissan_leaf_obd_ble."""
-
-    def __init__(self) -> None:
-        """Initialize options flow."""
-        self.options: dict = {}
+class NissanLeafObdBleOptionsFlowHandler(OptionsFlow):
+    """Options flow handler for nissan_leaf_obd_ble."""
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    ) -> ConfigFlowResult:
         """Manage the options."""
-        if not self.options:
-            self.options = dict(self.config_entry.options)
+        errors: dict[str, str] = {}
 
         if user_input is not None:
-            self.options.update(user_input)
-            return await self._update_options()
+            errors = _validate_uuids(user_input)
+            if not errors:
+                # Keep any options that are not exposed in the form.
+                return self.async_create_entry(
+                    data={**self.config_entry.options, **user_input}
+                )
+
+        defaults = {
+            CONF_CACHE_VALUES: DEFAULT_CACHE_VALUES,
+            CONF_FAST_POLL: DEFAULT_FAST_POLL,
+            CONF_SLOW_POLL: DEFAULT_SLOW_POLL,
+            CONF_XS_POLL: DEFAULT_XS_POLL,
+            **UUID_DEFAULTS,
+        }
+        # Older entries may hold empty/None UUIDs; fall back to the defaults.
+        stored = {k: v for k, v in self.config_entry.options.items() if v is not None}
 
         return self.async_show_form(
             step_id="init",
-            data_schema=vol.Schema(
-                {
-                    vol.Required(
-                        "cache_values", default=self.options.get("cache_values", False)
-                    ): bool,
-                    vol.Required(
-                        "fast_poll", default=self.options.get("fast_poll", 10)
-                    ): int,
-                    vol.Required(
-                        "slow_poll", default=self.options.get("slow_poll", 300)
-                    ): int,
-                    vol.Required(
-                        "xs_poll", default=self.options.get("xs_poll", 3600)
-                    ): int,
-                    vol.Optional(
-                        CONF_SERVICE_UUID,
-                        default=self.options.get(CONF_SERVICE_UUID)
-                        or DEFAULT_SERVICE_UUID,
-                    ): str,
-                    vol.Optional(
-                        CONF_CHARACTERISTIC_UUID_READ,
-                        default=self.options.get(CONF_CHARACTERISTIC_UUID_READ)
-                        or DEFAULT_CHARACTERISTIC_UUID_READ,
-                    ): str,
-                    vol.Optional(
-                        CONF_CHARACTERISTIC_UUID_WRITE,
-                        default=self.options.get(CONF_CHARACTERISTIC_UUID_WRITE)
-                        or DEFAULT_CHARACTERISTIC_UUID_WRITE,
-                    ): str,
-                }
+            data_schema=self.add_suggested_values_to_schema(
+                vol.Schema(
+                    {
+                        vol.Required(CONF_CACHE_VALUES): bool,
+                        vol.Required(CONF_FAST_POLL): _POLL_INTERVAL,
+                        vol.Required(CONF_SLOW_POLL): _POLL_INTERVAL,
+                        vol.Required(CONF_XS_POLL): _POLL_INTERVAL,
+                        **UUID_SCHEMA,
+                    }
+                ),
+                user_input or {**defaults, **stored},
             ),
-        )
-
-    async def _update_options(self):
-        """Update config entry options."""
-        return self.async_create_entry(
-            title=self.config_entry.data.get(CONF_ADDRESS), data=self.options
+            errors=errors,
         )

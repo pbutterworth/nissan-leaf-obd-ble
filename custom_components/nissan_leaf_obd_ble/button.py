@@ -1,32 +1,41 @@
 """Button platform for Nissan Leaf OBD BLE."""
 
-from homeassistant.components.button import ButtonEntity
-from homeassistant.config_entries import ConfigEntry
+from __future__ import annotations
+
+from homeassistant.components.button import ButtonEntity, ButtonEntityDescription
 from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DOMAIN, NAME
+from .coordinator import NissanLeafObdBleConfigEntry
 from .entity import NissanLeafObdBleEntity
+
+REFRESH_BUTTON = ButtonEntityDescription(
+    key="refresh",
+    name="Refresh",
+    icon="mdi:refresh",
+    entity_category=EntityCategory.DIAGNOSTIC,
+)
 
 
 async def async_setup_entry(
-    hass: HomeAssistant, entry: ConfigEntry, async_add_entities
+    hass: HomeAssistant,
+    entry: NissanLeafObdBleConfigEntry,
+    async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up button platform."""
-    coordinator = hass.data[DOMAIN][entry.entry_id]
-    async_add_entities([NissanLeafObdBleRefreshButton(coordinator, entry)])
+    async_add_entities(
+        [NissanLeafObdBleRefreshButton(entry.runtime_data, REFRESH_BUTTON)]
+    )
 
 
 class NissanLeafObdBleRefreshButton(NissanLeafObdBleEntity, ButtonEntity):
     """Button that triggers an immediate coordinator refresh."""
 
-    _attr_entity_category = EntityCategory.DIAGNOSTIC
-    _attr_icon = "mdi:refresh"
-    _attr_name = f"{NAME} Refresh"
-
-    def __init__(self, coordinator, config_entry) -> None:
-        """Initialize the button."""
-        super().__init__(coordinator, config_entry)
+    @property
+    def available(self) -> bool:
+        """Stay available so a failed poll can be retried by hand."""
+        return True
 
     async def async_press(self) -> None:
         """Trigger an immediate update."""

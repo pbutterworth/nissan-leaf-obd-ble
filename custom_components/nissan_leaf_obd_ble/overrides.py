@@ -1,10 +1,11 @@
 """Load user-defined OBD command overrides for the Nissan Leaf integration."""
 
+from collections.abc import Callable
 import importlib.util
 import logging
-import struct
 from pathlib import Path
-from typing import Any, Callable
+import struct
+from typing import Any
 
 import yaml
 from homeassistant.components.sensor import (
@@ -20,25 +21,6 @@ from py_nissan_leaf_obd_ble.commands import leaf_commands
 from .const import DECODERS_MODULE_FILE, OVERRIDES_FILE
 
 _LOGGER = logging.getLogger(__name__)
-
-_DEVICE_CLASSES: dict[str, SensorDeviceClass] = {
-    "battery": SensorDeviceClass.BATTERY,
-    "current": SensorDeviceClass.CURRENT,
-    "distance": SensorDeviceClass.DISTANCE,
-    "energy": SensorDeviceClass.ENERGY,
-    "enum": SensorDeviceClass.ENUM,
-    "power": SensorDeviceClass.POWER,
-    "pressure": SensorDeviceClass.PRESSURE,
-    "speed": SensorDeviceClass.SPEED,
-    "temperature": SensorDeviceClass.TEMPERATURE,
-    "voltage": SensorDeviceClass.VOLTAGE,
-}
-
-_STATE_CLASSES: dict[str, SensorStateClass] = {
-    "measurement": SensorStateClass.MEASUREMENT,
-    "total": SensorStateClass.TOTAL,
-    "total_increasing": SensorStateClass.TOTAL_INCREASING,
-}
 
 
 def load_overrides(
@@ -60,7 +42,7 @@ def load_overrides(
         return {}, {}, set()
 
     try:
-        with open(overrides_path) as f:
+        with open(overrides_path, encoding="utf-8") as f:
             config = yaml.safe_load(f)
     except Exception as err:
         _LOGGER.error("Failed to load %s: %s", overrides_path, err)
@@ -68,14 +50,18 @@ def load_overrides(
 
     if not config:
         return {}, {}, set()
+    if not isinstance(config, dict):
+        _LOGGER.error("%s must contain a mapping at the top level", overrides_path)
+        return {}, {}, set()
 
     # Merge _all_ entries with address-specific entries; address-specific wins on conflict
     command_entries: dict[str, Any] = {}
     if "_all_" in config:
-        command_entries.update(((config["_all_"] or {}).get("commands", {})))
-    address_upper = address.upper()
-    if address_upper in config:
-        command_entries.update(((config[address_upper] or {}).get("commands", {})))
+        command_entries.update((config["_all_"] or {}).get("commands") or {})
+    for section, value in config.items():
+        # MAC addresses are matched case-insensitively
+        if str(section).upper() == address.upper():
+            command_entries.update((value or {}).get("commands") or {})
 
     extra_commands: dict[str, OBDCommand] = {}
     extra_sensor_descriptions: dict[str, SensorEntityDescription] = {}
@@ -100,7 +86,9 @@ def load_overrides(
             try:
                 extra_sensor_descriptions.update(_build_sensor_descriptions(key, entry))
             except Exception as err:
-                _LOGGER.error("Invalid sensor definition for command '%s': %s", key, err)
+                _LOGGER.error(
+                    "Invalid sensor definition for command '%s': %s", key, err
+                )
 
     return extra_commands, extra_sensor_descriptions, disabled_commands
 
@@ -108,7 +96,9 @@ def load_overrides(
 def _load_python_module(path: Path):
     """Load a Python module from a file path."""
     try:
-        spec = importlib.util.spec_from_file_location("nissan_leaf_obd_ble_decoders", path)
+        spec = importlib.util.spec_from_file_location(
+            "nissan_leaf_obd_ble_decoders", path
+        )
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         _LOGGER.info("Loaded custom decoders from %s", path)
@@ -220,7 +210,9 @@ def _build_decoder(key: str, spec: dict, python_module) -> Callable:
         values = {int(k): v for k, v in spec["values"].items()}
         default = spec.get("default")
 
-        def _lookup(messages, _key=key, _off=byte_offset, _values=values, _default=default):
+        def _lookup(
+            messages, _key=key, _off=byte_offset, _values=values, _default=default
+        ):
             return {_key: _values.get(messages[0].data[_off], _default)}
 
         return _lookup
@@ -298,11 +290,12 @@ def _build_sensor_descriptions(
 
 def _sensor_desc_from_block(key: str, block: dict) -> SensorEntityDescription:
     """Build a SensorEntityDescription from a sensor config block."""
+    # Unknown values raise ValueError, which the caller logs against the command.
     device_class_str = block.get("device_class")
-    device_class = _DEVICE_CLASSES.get(device_class_str) if device_class_str else None
+    device_class = SensorDeviceClass(device_class_str) if device_class_str else None
 
     state_class_str = block.get("state_class")
-    state_class = _STATE_CLASSES.get(state_class_str) if state_class_str else None
+    state_class = SensorStateClass(state_class_str) if state_class_str else None
 
     return SensorEntityDescription(
         key=key,

@@ -1,9 +1,17 @@
 {
   "config": {
+    "flow_title": "{name}",
     "step": {
+      "user": {
+        "title": "Select OBD dongle",
+        "description": "Choose the Bluetooth OBD dongle plugged into your Nissan Leaf.",
+        "data": {
+          "address": "Device"
+        }
+      },
       "configure": {
-        "title": "Configure BLE UUIDs",
-        "description": "Leave defaults unless your OBD dongle uses non-standard GATT UUIDs.",
+        "title": "Set up {name}",
+        "description": "Add the OBD dongle {name} ({address})?\n\nLeave the defaults unless your dongle uses non-standard GATT UUIDs.",
         "data": {
           "service_uuid": "BLE service UUID",
           "characteristic_uuid_read": "BLE read characteristic UUID",
@@ -15,6 +23,14 @@
           "characteristic_uuid_write": "GATT characteristic UUID for sending commands to the dongle."
         }
       }
+    },
+    "error": {
+      "invalid_uuid": "Not a valid UUID. Use the full form (0000ffe0-0000-1000-8000-00805f9b34fb) or the 16-bit short form (ffe0)."
+    },
+    "abort": {
+      "already_configured": "Device is already configured",
+      "already_in_progress": "Configuration flow is already in progress",
+      "no_devices_found": "No unconfigured OBD dongles were found. Make sure the dongle is powered, within Bluetooth range and not connected to another app."
     }
   },
   "options": {
@@ -41,6 +57,9 @@
           "characteristic_uuid_write": "GATT characteristic UUID for sending commands. Change only if your dongle uses different UUIDs."
         }
       }
+    },
+    "error": {
+      "invalid_uuid": "Not a valid UUID. Use the full form (0000ffe0-0000-1000-8000-00805f9b34fb) or the 16-bit short form (ffe0)."
     }
   }
 }
